@@ -170,17 +170,17 @@ jobs:
             echo "has_dangerous=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Summarize Terraform Plan
-        id: summary
-        working-directory: environments/dev/core-infra
+      # - name: Summarize Terraform Plan
+      #   id: summary
+      #   working-directory: environments/dev/core-infra
 
-        run: |
-          added=$(jq '[.resource_changes[] | select(.change.actions[]=="create")] | length' plan.json)
-          updated=$(jq '[.resource_changes[] | select(.change.actions[]=="update")] | length' plan.json)
-          destroyed=$(jq '[.resource_changes[] | select(.change.actions[]=="delete")] | length' plan.json)
-          echo "added=${added}"    >> $GITHUB_OUTPUT
-          echo "updated=${updated}">> $GITHUB_OUTPUT
-          echo "destroyed=${destroyed}" >> $GITHUB_OUTPUT
+      #   run: |
+      #     added=$(jq '[.resource_changes[] | select(.change.actions[]=="create")] | length' plan.json)
+      #     updated=$(jq '[.resource_changes[] | select(.change.actions[]=="update")] | length' plan.json)
+      #     destroyed=$(jq '[.resource_changes[] | select(.change.actions[]=="delete")] | length' plan.json)
+      #     echo "added=${added}"    >> $GITHUB_OUTPUT
+      #     echo "updated=${updated}">> $GITHUB_OUTPUT
+      #     echo "destroyed=${destroyed}" >> $GITHUB_OUTPUT
 
       # - name: Post Plan Summary Comment
       #   if: github.event_name == 'pull_request'
