@@ -1,10 +1,10 @@
-# Enterprise Microservices Platform on AWS EKS
+# Microservices Platform on AWS EKS
 
 > **완전한 MSA 환경**: Kubernetes 기반의 엔터프라이즈급 마이크로서비스 플랫폼  
 > **Multi-Environment**: Development, Staging, Production 환경 지원  
 > **S3 호환 스토리지**: MinIO를 통한 비용 효율적인 객체 스토리지  
 
-이 프로젝트는 AWS EKS를 기반으로 한 완전한 마이크로서비스 플랫폼입니다. 도메인 주도 설계(DDD) 원칙에 따라 각 비즈니스 도메인별로 인프라를 분리하여 관리하며, 11개의 마이크로서비스를 지원합니다.
+이 프로젝트는 AWS EKS를 기반으로 한 마이크로서비스 플랫폼입니다. 도메인 주도 설계(DDD) 원칙에 따라 각 비즈니스 도메인별로 인프라를 분리하여 관리하며, 11개의 마이크로서비스를 지원합니다.
 
 ## 🏗️ 아키텍처 개요
 
