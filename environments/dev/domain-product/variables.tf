@@ -117,3 +117,9 @@ variable "kms_arn" {
   type    = string
   default = ""
 }
+
+variable "ecr_allow_account_arns" {
+  type        = list(string)
+  description = "List of AWS account ARNs allowed to pull from ECR. Leave empty for no explicit cross-account access."
+  default     = []
+}

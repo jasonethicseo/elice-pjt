@@ -121,3 +121,20 @@ module "order_s3" {
   cors_configs = null
   kms_arn      = var.kms_arn
 }
+
+# Helm Chart ECR Repository for order domain
+module "order_helm_repo" {
+  source = "../../../modules/ecr"
+
+  stage       = var.stage
+  servicename = var.servicename
+  tags        = merge(local.common_tags, var.tags)
+
+  ecr_repository_list = [] # No regular image repos here
+  helm_repository     = "helm-charts-order" # Unique name for the helm repo
+  isdev               = true # Enable for dev environment
+  ecr_allow_account_arns = var.ecr_allow_account_arns
+
+  image_tag_mutability = var.image_tag_mutability
+  image_scan_on_push   = var.image_scan_on_push
+}

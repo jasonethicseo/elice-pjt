@@ -9,9 +9,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-org/microservices-apps.git  # Replace with your apps repo
+    repoURL: https://github.com/jasonethicseo/elice-pjt.git # 모노레포의 주소로 변경
     targetRevision: HEAD
-    path: applications
+    path: helm-charts # 루트 애플리케이션 경로
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
@@ -33,12 +33,12 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-org/order-service.git  # Replace with your service repo
-    targetRevision: HEAD
-    path: k8s
+    repoURL: oci://YOUR_AWS_ACCOUNT_ID.dkr.ecr.ca-central-1.amazonaws.com/aws-ecr-elice-pjt-helm-charts-order
+    targetRevision: 0.1.0 # Assuming initial chart version
+    chart: order-service
     helm:
       valueFiles:
-        - values-dev.yaml
+        - https://github.com/jasonethicseo/elice-pjt.git/helm-charts/order-service/values.yaml # Path to values.yaml in Git
   destination:
     server: https://kubernetes.default.svc
     namespace: order
@@ -66,12 +66,12 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-org/product-service.git  # Replace with your service repo
-    targetRevision: HEAD
-    path: k8s
+    repoURL: oci://YOUR_AWS_ACCOUNT_ID.dkr.ecr.ca-central-1.amazonaws.com/aws-ecr-elice-pjt-helm-charts-product
+    targetRevision: 0.1.0 # Assuming initial chart version
+    chart: product-service
     helm:
       valueFiles:
-        - values-dev.yaml
+        - https://github.com/jasonethicseo/elice-pjt.git/helm-charts/product-service/values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: product
@@ -99,12 +99,12 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-org/user-service.git  # Replace with your service repo
-    targetRevision: HEAD
-    path: k8s
+    repoURL: oci://YOUR_AWS_ACCOUNT_ID.dkr.ecr.ca-central-1.amazonaws.com/aws-ecr-elice-pjt-helm-charts-user
+    targetRevision: 0.1.0 # Assuming initial chart version
+    chart: user-service
     helm:
       valueFiles:
-        - values-dev.yaml
+        - https://github.com/jasonethicseo/elice-pjt.git/helm-charts/user-service/values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: user

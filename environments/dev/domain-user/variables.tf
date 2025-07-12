@@ -123,3 +123,9 @@ variable "domain_name" {
   default = "example.com"
   description = "Domain name for CORS configuration"
 }
+
+variable "ecr_allow_account_arns" {
+  type        = list(string)
+  description = "List of AWS account ARNs allowed to pull from ECR. Leave empty for no explicit cross-account access."
+  default     = []
+}
