@@ -1,0 +1,165 @@
+name: "Terraform Plan"
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'environments/**'
+      - 'modules/**'
+
+env:
+  TF_VERSION: "1.5.0"
+  AWS_REGION: "ca-central-1"
+
+jobs:
+  detect-changes:
+    name: "Detect Changes"
+    runs-on: ubuntu-latest
+    outputs:
+      core-infra: ${{ steps.changes.outputs.core-infra }}
+      domain-order: ${{ steps.changes.outputs.domain-order }}
+      domain-product: ${{ steps.changes.outputs.domain-product }}
+      domain-user: ${{ steps.changes.outputs.domain-user }}
+      modules: ${{ steps.changes.outputs.modules }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            core-infra:
+              - 'environments/dev/core-infra/**'
+              - 'modules/vpc/**'
+              - 'modules/eks/**'
+              - 'modules/openvpn/**'
+              - 'modules/s3/**'
+              - 'modules/cloudfront/**'
+            domain-order:
+              - 'environments/dev/domain-order/**'
+              - 'modules/aurora/**'
+              - 'modules/microservice-base/**'
+            domain-product:
+              - 'environments/dev/domain-product/**'
+              - 'modules/aurora/**'
+              - 'modules/microservice-base/**'
+            domain-user:
+              - 'environments/dev/domain-user/**'
+              - 'modules/aurora/**'
+              - 'modules/microservice-base/**'
+            modules:
+              - 'modules/**'
+
+  terraform-plan:
+    name: "Terraform Plan"
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.core-infra == 'true' ||
+      needs.detect-changes.outputs.domain-order == 'true' ||
+      needs.detect-changes.outputs.domain-product == 'true' ||
+      needs.detect-changes.outputs.domain-user == 'true' ||
+      needs.detect-changes.outputs.modules == 'true'
+    
+    strategy:
+      matrix:
+        include:
+          - component: "core-infra"
+            path: "environments/dev/core-infra"
+            condition: ${{ needs.detect-changes.outputs.core-infra == 'true' || needs.detect-changes.outputs.modules == 'true' }}
+          - component: "domain-order"
+            path: "environments/dev/domain-order"
+            condition: ${{ needs.detect-changes.outputs.domain-order == 'true' || needs.detect-changes.outputs.modules == 'true' }}
+          - component: "domain-product"
+            path: "environments/dev/domain-product"
+            condition: ${{ needs.detect-changes.outputs.domain-product == 'true' || needs.detect-changes.outputs.modules == 'true' }}
+          - component: "domain-user"
+            path: "environments/dev/domain-user"
+            condition: ${{ needs.detect-changes.outputs.domain-user == 'true' || needs.detect-changes.outputs.modules == 'true' }}
+
+    steps:
+      - name: Checkout
+        if: matrix.condition == true
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        if: matrix.condition == true
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        if: matrix.condition == true
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        if: matrix.condition == true
+        working-directory: ${{ matrix.path }}
+        run: terraform init
+
+      - name: Terraform Validate
+        if: matrix.condition == true
+        working-directory: ${{ matrix.path }}
+        run: terraform validate
+
+      - name: Terraform Plan
+        if: matrix.condition == true
+        working-directory: ${{ matrix.path }}
+        run: |
+          terraform plan -detailed-exitcode -out=tfplan || exit_code=$?
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+          if [ $exit_code -eq 1 ]; then
+            exit 1
+          elif [ $exit_code -eq 2 ]; then
+            echo "Changes detected for ${{ matrix.component }}"
+          else
+            echo "No changes detected for ${{ matrix.component }}"
+          fi
+        id: plan
+
+      - name: Comment Plan Results
+        if: matrix.condition == true
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Get plan output
+            let planOutput = '';
+            try {
+              const { exec } = require('child_process');
+              const { promisify } = require('util');
+              const execAsync = promisify(exec);
+              
+              const result = await execAsync('terraform show -no-color tfplan', {
+                cwd: '${{ matrix.path }}'
+              });
+              planOutput = result.stdout;
+            } catch (error) {
+              planOutput = 'Error reading plan output';
+            }
+            
+            const comment = `## Terraform Plan Results for \`${{ matrix.component }}\`
+            
+            \`\`\`
+            ${planOutput.slice(0, 60000)}
+            \`\`\`
+            
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

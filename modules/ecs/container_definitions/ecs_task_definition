@@ -1,0 +1,50 @@
+[
+    {
+        "name": "${container_name}",
+        "image": "${ecr_uri}",
+        "cpu": ${ecs_container_cpu},
+        "memory": ${ecs_container_memory},
+        "links": null,
+        "portMappings": [
+            {
+                "containerPort": ${container_port},
+                "hostPort": ${container_port},
+                "protocol": "tcp"
+            }
+        ],
+        "environment": [],
+        "mountPoints": [
+            {
+                "ContainerPath": "${volume_container_path}",
+                "SourceVolume": "${volume_name}",
+                "ReadOnly": false
+            },
+            {
+                "ContainerPath": "/var/run/docker.sock",
+                "SourceVolume": "docker_sock",
+                "ReadOnly": false
+            }
+        ],
+        "volumesFrom": [],
+        "hostname": null,
+        "user": null,
+        "workingDirectory": null,
+        "disableNetworking": null,
+        "privileged": null,
+        "readonlyRootFilesystem": null,
+        "dnsServers": null,
+        "dnsSearchDomains": null,
+        "extraHosts": null,
+        "dockerSecurityOptions": null,
+        "dockerLabels": null,
+        "ulimits": null,
+        "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+                "awslogs-group": "${log_group}",
+                "awslogs-region": "${aws_region}",
+                "awslogs-stream-prefix": "fargate"
+            }
+        }
+    }
+]

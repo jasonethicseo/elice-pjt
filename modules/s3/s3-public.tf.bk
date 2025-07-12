@@ -1,0 +1,93 @@
+resource "aws_s3_bucket" "s3-public-bucket" {
+  bucket = "public-alpha-bucket"
+### add after create logging bucket
+#  logging {
+#    target_bucket = var.logging_bucket_id
+#    target_prefix = "${var.s3_access_logging_prefix}/smp-eks-node"
+#  }
+
+  tags = merge(tomap({
+         Name = "public-alpha-bucket"}),
+        var.tags)
+
+}
+
+resource "aws_s3_bucket_public_access_block" "s3-bucket-pub-access-block" {
+  bucket = aws_s3_bucket.s3-public-bucket.id
+}
+
+
+
+resource "aws_s3_bucket_policy" "s3-public-bucket-policy" {
+  bucket = aws_s3_bucket.s3-public-bucket.id
+  policy = <<POLICY
+{
+      "Version": "2012-10-17",
+      "Statement": [
+      {
+        "Sid": "bucket account policy",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": "s3:GetObject",
+        "Resource": "arn:aws:s3:::public-alpha-bucket/*"
+    }
+  ]
+}
+POLICY
+}
+
+# resource "aws_s3_bucket_lifecycle_configuration" "s3-lifecycle-config-public" {
+#   bucket = aws_s3_bucket.s3-public-bucket.bucket
+
+#   rule {
+#     id = "default"
+
+#     expiration {
+#       days = var.expiration_days
+#     }
+
+#     status = var.lifecycle_rule_enabled ? "Enabled" : "Disabled"
+
+#     transition {
+#       days          = var.STANDARD_IA_Transition_days
+#       storage_class = "STANDARD_IA"
+#     }
+#     noncurrent_version_transition {
+#       noncurrent_days = var.STANDARD_IA_Transition_days
+#       storage_class   = "STANDARD_IA"
+#     }
+
+#     transition {
+#       days          = var.GLACIER_Transition_days
+#       storage_class = "GLACIER"
+#     }
+#     noncurrent_version_transition {
+#       noncurrent_days = var.GLACIER_Transition_days
+#       storage_class   = "GLACIER"
+#     }
+
+#     noncurrent_version_expiration {
+#       noncurrent_days = var.expiration_days
+#     }
+
+#   }
+
+# }
+
+# resource "aws_s3_bucket_server_side_encryption_configuration" "s3-encryption" {
+#   bucket = aws_s3_bucket.s3-public-bucket.bucket
+#   rule {
+#     apply_server_side_encryption_by_default {
+#       kms_master_key_id = var.kms_arn
+#       sse_algorithm     = "aws:kms"
+#     }
+#   }
+# }
+
+# resource "aws_s3_bucket_versioning" "s3-versioning" {
+#   count = var.versioning_enabled ? 1 : 0
+#   bucket = aws_s3_bucket.s3-public-bucket.id
+#   versioning_configuration {
+#     status = "Enabled"
+#   }
+# }
