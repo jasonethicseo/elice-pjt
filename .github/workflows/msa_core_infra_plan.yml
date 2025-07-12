@@ -240,13 +240,13 @@ jobs:
           exit 1
 
       - name: Upload Terraform Plan Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan
           path: environments/dev/core-infra/tfplan
 
       - name: Upload Terraform Plan JSON Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan-json
           path: environments/dev/core-infra/plan.json

@@ -243,13 +243,13 @@ jobs:
           exit 1
 
       - name: Upload Terraform Plan Artifact for Domain ${{ matrix.domain }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan-${{ matrix.domain }}
           path: environments/dev/domain-${{ matrix.domain }}/tfplan-${{ matrix.domain }}
 
       - name: Upload Terraform Plan JSON Artifact for Domain ${{ matrix.domain }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan-json-${{ matrix.domain }}
           path: environments/dev/domain-${{ matrix.domain }}/plan.json
