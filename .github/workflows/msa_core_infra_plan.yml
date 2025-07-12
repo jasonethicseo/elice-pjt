@@ -170,61 +170,35 @@ jobs:
             echo "has_dangerous=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Comment Plan Results
+      - name: Summarize Terraform Plan
+        id: summary
+        run: |
+          added=$(jq '[.resource_changes[] | select(.change.actions[]=="create")] | length' plan.json)
+          updated=$(jq '[.resource_changes[] | select(.change.actions[]=="update")] | length' plan.json)
+          destroyed=$(jq '[.resource_changes[] | select(.change.actions[]=="delete")] | length' plan.json)
+          echo "added=${added}"    >> $GITHUB_OUTPUT
+          echo "updated=${updated}">> $GITHUB_OUTPUT
+          echo "destroyed=${destroyed}" >> $GITHUB_OUTPUT
+
+      - name: Post Plan Summary Comment
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        uses: peter-evans/create-or-update-comment@v4
         with:
-          script: |
-            const fs = require('fs');
-            const { execSync } = require('child_process');
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## 🏗️ Core Infrastructure Terraform Plan
+            ${{ steps.summary.outputs.added }} to add  
+            ${{ steps.summary.outputs.updated }} to change  
+            ${{ steps.summary.outputs.destroyed }} to destroy  
+
+            ${{ steps.check_dangerous.outputs.has_dangerous == 'true' && '🚨 **DANGEROUS ACTIONS DETECTED!**' || '✅ **SAFE: Only create/update actions**' }}
+
+            <details>
+            <summary>📋 Full Plan JSON (artifact)</summary>
             
-            try {
-              const planJson = JSON.parse(fs.readFileSync('environments/dev/core-infra/plan.json', 'utf8'));
-              let added = 0;
-              let changed = 0;
-              let destroyed = 0;
-
-              if (planJson.resource_changes) {
-                planJson.resource_changes.forEach(change => {
-                  if (change.change.actions.includes('create')) {
-                    added++;
-                  }
-                  if (change.change.actions.includes('update')) {
-                    changed++;
-                  }
-                  if (change.change.actions.includes('delete')) {
-                    destroyed++;
-                  }
-                });
-              }
-
-              const summaryText = `Plan: ${added} to add, ${changed} to change, ${destroyed} to destroy.`;
-              const hasDangerous = '${{ steps.check_dangerous.outputs.has_dangerous }}' === 'true';
-              
-              const comment = `
-              ## 🏗️ Core Infrastructure Terraform Plan
-              
-              ${hasDangerous ? '🚨 **DANGEROUS ACTIONS DETECTED!**' : '✅ **SAFE: Only create/update actions**'}
-              
-              ${summaryText}
-              
-              <details>
-              <summary>📋 Full Plan Output (view as workflow artifact)</summary>
-              
-              The full Terraform plan output is too large to display here. Please refer to the workflow run artifacts for the complete plan.
-              
-              </details>
-              `;
-              
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-            } catch (error) {
-              console.error('Error posting comment:', error);
-            }
+            전체 Plan 보기 → 워크플로우 아티팩트의 `terraform-plan-json` 다운로드  
+            </details>
 
       - name: Fail if Dangerous Actions Detected
         if: steps.check_dangerous.outputs.has_dangerous == 'true'
