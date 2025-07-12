@@ -172,6 +172,8 @@ jobs:
 
       - name: Summarize Terraform Plan
         id: summary
+        working-directory: environments/dev/core-infra
+
         run: |
           added=$(jq '[.resource_changes[] | select(.change.actions[]=="create")] | length' plan.json)
           updated=$(jq '[.resource_changes[] | select(.change.actions[]=="update")] | length' plan.json)
