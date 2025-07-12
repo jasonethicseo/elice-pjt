@@ -177,7 +177,26 @@ jobs:
             const { execSync } = require('child_process');
             
             try {
-              const planOutput = execSync('cd environments/dev/core-infra && terraform show tfplan', { encoding: 'utf8' });
+              const planJson = JSON.parse(fs.readFileSync('environments/dev/core-infra/plan.json', 'utf8'));
+              let added = 0;
+              let changed = 0;
+              let destroyed = 0;
+
+              if (planJson.resource_changes) {
+                planJson.resource_changes.forEach(change => {
+                  if (change.change.actions.includes('create')) {
+                    added++;
+                  }
+                  if (change.change.actions.includes('update')) {
+                    changed++;
+                  }
+                  if (change.change.actions.includes('delete')) {
+                    destroyed++;
+                  }
+                });
+              }
+
+              const summaryText = `Plan: ${added} to add, ${changed} to change, ${destroyed} to destroy.`;
               const hasDangerous = '${{ steps.check_dangerous.outputs.has_dangerous }}' === 'true';
               
               const comment = `
@@ -185,12 +204,12 @@ jobs:
               
               ${hasDangerous ? '🚨 **DANGEROUS ACTIONS DETECTED!**' : '✅ **SAFE: Only create/update actions**'}
               
-              <details>
-              <summary>📋 Plan Output</summary>
+              ${summaryText}
               
-              \`\`\`
-              ${planOutput}
-              \`\`\`
+              <details>
+              <summary>📋 Full Plan Output (view as workflow artifact)</summary>
+              
+              The full Terraform plan output is too large to display here. Please refer to the workflow run artifacts for the complete plan.
               
               </details>
               `;
@@ -219,3 +238,15 @@ jobs:
           echo "  3. Plan for maintenance window"
           echo "  4. Use manual override if absolutely required"
           exit 1
+
+      - name: Upload Terraform Plan Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: terraform-plan
+          path: environments/dev/core-infra/tfplan
+
+      - name: Upload Terraform Plan JSON Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: terraform-plan-json
+          path: environments/dev/core-infra/plan.json
