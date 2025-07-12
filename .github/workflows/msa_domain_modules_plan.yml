@@ -137,7 +137,7 @@ jobs:
       - name: Generate JSON Plan - Domain ${{ matrix.domain }}
         if: steps.check_core.outputs.core_exists == 'true'
         working-directory: environments/dev/domain-${{ matrix.domain }}
-        run: terraform show -json tfplan-${{ matrix.domain }} > plan.json
+        run: terraform show -json tfplan-${{ matrix.domain }} | jq . > plan.json
 
       - name: Check for Dangerous Actions (delete/replace) - Domain ${{ matrix.domain }}
         if: steps.check_core.outputs.core_exists == 'true'

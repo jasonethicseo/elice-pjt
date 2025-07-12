@@ -186,7 +186,7 @@ jobs:
 
       - name: Generate JSON Plan - Domain ${{ matrix.domain }}
         working-directory: environments/dev/domain-${{ matrix.domain }}
-        run: terraform show -json tfplan-${{ matrix.domain }} > plan.json
+        run: terraform show -json tfplan-${{ matrix.domain }} | jq . > plan.json
 
       - name: Check for Dangerous Actions - Domain ${{ matrix.domain }}
         id: check_dangerous
