@@ -105,10 +105,10 @@ jobs:
         run: |
           # Check if core-infra state exists
           if aws s3api head-object --bucket "${{ env.TF_BUCKET_NAME }}" --key "terraform/dev/core-infra/terraform.tfstate" --region "${{ env.AWS_REGION }}" > /dev/null 2>&1; then
-            echo "✅ Core infrastructure state found"
+            echo "Core infrastructure state found"
             echo "core_exists=true" >> $GITHUB_OUTPUT
           else
-            echo "❌ Core infrastructure state not found"
+            echo "Core infrastructure state not found"
             echo "core_exists=false" >> $GITHUB_OUTPUT
           fi
 
@@ -152,7 +152,7 @@ jobs:
                      (index("delete") or 
                       (index("delete") and index("create"))))' plan.json \
              | grep -q .; then
-            echo "⚠️  Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}"
+            echo "Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}"
             echo "has_dangerous=true" >> $GITHUB_OUTPUT
             
             # Show what resources would be affected
@@ -163,7 +163,7 @@ jobs:
                         (index("delete") and index("create"))))
                      | "  - \(.address): \(.change.actions | join(","))"' plan.json
           else
-            echo "✅ Only safe actions (create/update) detected in domain ${{ matrix.domain }}"
+            echo "Only safe actions (create/update) detected in domain ${{ matrix.domain }}"
             echo "has_dangerous=false" >> $GITHUB_OUTPUT
           fi
 
@@ -226,19 +226,19 @@ jobs:
       - name: Fail if Core Infrastructure Missing
         if: steps.check_core.outputs.core_exists == 'false'
         run: |
-          echo "❌ ERROR: Core infrastructure must be deployed before domain modules."
+          echo "ERROR: Core infrastructure must be deployed before domain modules."
           echo "Please deploy core-infra first using the MSA Core Infrastructure workflow."
           exit 1
 
       - name: Fail if Dangerous Actions Detected
         if: steps.check_core.outputs.core_exists == 'true' && steps.check_dangerous.outputs.has_dangerous == 'true'
         run: |
-          echo "🚨 ERROR: Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}!"
+          echo "ERROR: Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}!"
           echo ""
-          echo "❌ BLOCKED: Only create and update actions are allowed for safety."
-          echo "⚠️  This could cause downtime for this domain's services."
+          echo "BLOCKED: Only create and update actions are allowed for safety."
+          echo "This could cause downtime for this domain's services."
           echo ""
-          echo "🔍 If this change is intentional and necessary:"
+          echo "If this change is intentional and necessary:"
           echo "  1. Review the plan output carefully"
           echo "  2. Coordinate with the domain team"
           echo "  3. Plan for maintenance window"

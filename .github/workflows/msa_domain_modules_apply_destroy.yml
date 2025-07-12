@@ -53,7 +53,7 @@ jobs:
               if [[ "$domain" =~ ^(user|product|order)$ ]]; then
                 DOMAINS="${DOMAINS}\"$domain\","
               else
-                echo "❌ Invalid domain: $domain. Must be one of: user, product, order"
+                echo "Invalid domain: $domain. Must be one of: user, product, order"
                 exit 1
               fi
             done
@@ -80,10 +80,10 @@ jobs:
         id: check
         run: |
           if aws s3api head-object --bucket "${{ env.TF_BUCKET_NAME }}" --key "terraform/dev/core-infra/terraform.tfstate" --region "${{ env.AWS_REGION }}" > /dev/null 2>&1; then
-            echo "✅ Core infrastructure state found"
+            echo "Core infrastructure state found"
             echo "core_exists=true" >> $GITHUB_OUTPUT
           else
-            echo "❌ Core infrastructure state not found"
+            echo "Core infrastructure state not found"
             echo "core_exists=false" >> $GITHUB_OUTPUT
           fi
 
@@ -149,7 +149,7 @@ jobs:
                      (index("delete") or 
                       (index("delete") and index("create"))))' plan.json \
              | grep -q .; then
-            echo "⚠️  Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}"
+            echo "Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}"
             echo "has_dangerous=true" >> $GITHUB_OUTPUT
             
             # Show what resources would be affected
@@ -160,7 +160,7 @@ jobs:
                         (index("delete") and index("create"))))
                      | "  - \(.address): \(.change.actions | join(","))"' plan.json
           else
-            echo "✅ Only safe actions (create/update) detected in domain ${{ matrix.domain }}"
+            echo "Only safe actions (create/update) detected in domain ${{ matrix.domain }}"
             echo "has_dangerous=false" >> $GITHUB_OUTPUT
           fi
 
@@ -168,7 +168,7 @@ jobs:
         if: github.event.inputs.action == 'destroy'
         run: |
           if [ "${{ github.event.inputs.confirm_destroy }}" != "DESTROY" ]; then
-            echo "❌ ERROR: Destroy confirmation not provided for domain ${{ matrix.domain }}."
+            echo "ERROR: Destroy confirmation not provided for domain ${{ matrix.domain }}."
             echo "Please type 'DESTROY' in the confirm_destroy input to proceed."
             exit 1
           fi
@@ -176,12 +176,12 @@ jobs:
       - name: Fail if Dangerous Actions Detected - Domain ${{ matrix.domain }}
         if: github.event.inputs.skip_plan == 'false' && github.event.inputs.action == 'apply' && steps.check_dangerous.outputs.has_dangerous == 'true'
         run: |
-          echo "🚨 ERROR: Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}!"
+          echo "ERROR: Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}!"
           echo ""
-          echo "❌ BLOCKED: Only create and update actions are allowed for safety."
-          echo "⚠️  This could cause downtime for this domain's services."
+          echo "BLOCKED: Only create and update actions are allowed for safety."
+          echo "This could cause downtime for this domain's services."
           echo ""
-          echo "🔍 If this change is intentional and necessary:"
+          echo "If this change is intentional and necessary:"
           echo "  1. Review the plan output carefully"
           echo "  2. Coordinate with the domain team"
           echo "  3. Schedule maintenance window"
@@ -212,17 +212,17 @@ jobs:
         if: github.event.inputs.action == 'apply'
         working-directory: environments/dev/domain-${{ matrix.domain }}
         run: |
-          echo "🎉 Domain ${{ matrix.domain }} deployment completed successfully!"
+          echo "Domain ${{ matrix.domain }} deployment completed successfully!"
           echo ""
           echo "📋 Summary:"
           terraform output -json | jq -r 'to_entries[] | "  \(.key): \(.value.value)"' || echo "  No outputs available"
           echo ""
-          echo "✅ Domain ${{ matrix.domain }} is ready for application deployment."
+          echo "Domain ${{ matrix.domain }} is ready for application deployment."
 
       - name: Post Destroy Summary - Domain ${{ matrix.domain }}
         if: github.event.inputs.action == 'destroy'
         run: |
-          echo "🗑️  Domain ${{ matrix.domain }} destroyed successfully!"
+          echo "Domain ${{ matrix.domain }} destroyed successfully!"
 
   fail_if_no_core:
     name: 'Fail if Core Infrastructure Missing'
@@ -232,14 +232,14 @@ jobs:
     steps:
       - name: Fail with error message
         run: |
-          echo "❌ ERROR: Core infrastructure must be deployed before domain modules."
+          echo "ERROR: Core infrastructure must be deployed before domain modules."
           echo ""
           echo "Please deploy core infrastructure first using:"
-          echo "  🏗️  MSA Core Infrastructure - Apply/Destroy workflow"
+          echo "  MSA Core Infrastructure - Apply/Destroy workflow"
           echo ""
           echo "Current status:"
-          echo "  ❌ Core infrastructure: Not found"
-          echo "  ⏳ Domain modules: Waiting for core infrastructure"
+          echo "  Core infrastructure: Not found"
+          echo "  Domain modules: Waiting for core infrastructure"
           exit 1
 
   summary:
@@ -253,7 +253,7 @@ jobs:
           ACTION="${{ github.event.inputs.action }}"
           DOMAINS="${{ needs.parse_domains.outputs.domains }}"
           
-          echo "🎯 $ACTION Operation Summary"
+          echo "$ACTION Operation Summary"
           echo "=========================="
           echo ""
           echo "📋 Target Domains: $DOMAINS"
@@ -263,14 +263,14 @@ jobs:
           echo ""
           
           if [ "$ACTION" = "apply" ]; then
-            echo "✅ Domain modules have been deployed successfully!"
+            echo "Domain modules have been deployed successfully!"
             echo ""
-            echo "🚀 Next Steps:"
+            echo "Next Steps:"
             echo "  1. Verify domain resources in AWS Console"
             echo "  2. Deploy applications to the created namespaces"
             echo "  3. Configure ArgoCD for GitOps deployments"
           else
-            echo "🗑️  Domain modules have been destroyed successfully!"
+            echo "Domain modules have been destroyed successfully!"
             echo ""
-            echo "ℹ️  Core infrastructure remains available for future deployments."
+            echo "Core infrastructure remains available for future deployments."
           fi

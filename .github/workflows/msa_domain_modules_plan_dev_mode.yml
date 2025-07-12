@@ -98,27 +98,27 @@ jobs:
           KEY="terraform/dev/core-infra/terraform.tfstate"
           REGION="${{ env.AWS_REGION }}"
           
-          echo "🔍 Checking core infrastructure state..."
+          echo "Checking core infrastructure state..."
           
           # 1단계: tfstate 파일 존재 확인
           if ! aws s3api head-object --bucket "$BUCKET" --key "$KEY" --region "$REGION" > /dev/null 2>&1; then
-            echo "📋 tfstate file not found - using mock mode"
+            echo "tfstate file not found - using mock mode"
             echo "mode=mock" >> $GITHUB_OUTPUT
             echo "reason=no_tfstate" >> $GITHUB_OUTPUT
             exit 0
           fi
           
           # 2단계: tfstate 내용 확인 (outputs가 실제로 있는지)
-          echo "📄 tfstate file exists, checking content..."
+          echo "tfstate file exists, checking content..."
           OUTPUTS_COUNT=$(aws s3 cp s3://$BUCKET/$KEY - 2>/dev/null | jq '.outputs | length' 2>/dev/null || echo "0")
           
           if [ "$OUTPUTS_COUNT" -eq 0 ] || [ "$OUTPUTS_COUNT" = "null" ]; then
-            echo "⚠️  tfstate exists but no outputs found - using mock mode"
-            echo "📝 This happens when infrastructure was destroyed but tfstate file remains"
+            echo "tfstate exists but no outputs found - using mock mode"
+            echo "This happens when infrastructure was destroyed but tfstate file remains"
             echo "mode=mock" >> $GITHUB_OUTPUT
             echo "reason=empty_outputs" >> $GITHUB_OUTPUT
           else
-            echo "✅ Core infrastructure fully available with $OUTPUTS_COUNT outputs - using integrated mode"
+            echo "Core infrastructure fully available with $OUTPUTS_COUNT outputs - using integrated mode"
             echo "mode=integrated" >> $GITHUB_OUTPUT
             echo "reason=fully_available" >> $GITHUB_OUTPUT
           fi
@@ -200,7 +200,7 @@ jobs:
                      (index("delete") or 
                       (index("delete") and index("create"))))' plan.json \
              | grep -q .; then
-            echo "⚠️  Dangerous actions detected in domain ${{ matrix.domain }}"
+            echo "Dangerous actions detected in domain ${{ matrix.domain }}"
             echo "has_dangerous=true" >> $GITHUB_OUTPUT
             
             echo "📋 Affected resources in domain ${{ matrix.domain }}:"
@@ -210,7 +210,7 @@ jobs:
                         (index("delete") and index("create"))))
                      | "  - \(.address): \(.change.actions | join(","))"' plan.json
           else
-            echo "✅ Only safe actions detected in domain ${{ matrix.domain }}"
+            echo "Only safe actions detected in domain ${{ matrix.domain }}"
             echo "has_dangerous=false" >> $GITHUB_OUTPUT
           fi
 
@@ -302,14 +302,14 @@ jobs:
       - name: Fail if Dangerous Actions Detected
         if: steps.check_dangerous.outputs.has_dangerous == 'true'
         run: |
-          echo "🚨 ERROR: Dangerous actions detected in domain ${{ matrix.domain }}!"
+          echo "ERROR: Dangerous actions detected in domain ${{ matrix.domain }}!"
           echo ""
           if [ "${{ steps.check_core.outputs.mode }}" = "mock" ]; then
-            echo "⚠️  This is development mode with mock data."
-            echo "🔍 Review carefully before deploying to integrated environment."
+            echo "This is development mode with mock data."
+            echo "Review carefully before deploying to integrated environment."
           else
-            echo "❌ BLOCKED: Only create and update actions are allowed for safety."
-            echo "⚠️  This could cause downtime for this domain's services."
+            echo "BLOCKED: Only create and update actions are allowed for safety."
+            echo "This could cause downtime for this domain's services."
           fi
           exit 1
 
