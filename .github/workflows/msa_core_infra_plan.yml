@@ -144,7 +144,7 @@ jobs:
         working-directory: environments/dev/core-infra
         run: |
           terraform show -json tfplan > raw_plan.json
-          # Filter out any non-JSON lines before piping to jq
+          cat raw_plan.json # Debugging: print raw_plan.json content
           awk '/^{/{flag=1} flag' raw_plan.json | jq . > plan.json
 
       - name: Check for Dangerous Actions (delete/replace)
