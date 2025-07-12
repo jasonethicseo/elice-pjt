@@ -203,7 +203,7 @@ jobs:
             echo "Dangerous actions detected in domain ${{ matrix.domain }}"
             echo "has_dangerous=true" >> $GITHUB_OUTPUT
             
-            echo "📋 Affected resources in domain ${{ matrix.domain }}:"
+            echo "Affected resources in domain ${{ matrix.domain }}:"
             jq -r '.resource_changes[]
                      | select(.change.actions | 
                        (index("delete") or 

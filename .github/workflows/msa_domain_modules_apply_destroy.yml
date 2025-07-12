@@ -153,7 +153,7 @@ jobs:
             echo "has_dangerous=true" >> $GITHUB_OUTPUT
             
             # Show what resources would be affected
-            echo "📋 Affected resources in domain ${{ matrix.domain }}:"
+            echo "Affected resources in domain ${{ matrix.domain }}:"
             jq -r '.resource_changes[]
                      | select(.change.actions | 
                        (index("delete") or 
@@ -214,7 +214,7 @@ jobs:
         run: |
           echo "Domain ${{ matrix.domain }} deployment completed successfully!"
           echo ""
-          echo "📋 Summary:"
+          echo "Summary:"
           terraform output -json | jq -r 'to_entries[] | "  \(.key): \(.value.value)"' || echo "  No outputs available"
           echo ""
           echo "Domain ${{ matrix.domain }} is ready for application deployment."
@@ -256,10 +256,10 @@ jobs:
           echo "$ACTION Operation Summary"
           echo "=========================="
           echo ""
-          echo "📋 Target Domains: $DOMAINS"
-          echo "🔧 Action: $ACTION"
-          echo "🌍 Environment: dev"
-          echo "📅 Timestamp: $(date)"
+          echo "Target Domains: $DOMAINS"
+          echo "Action: $ACTION"
+          echo "Environment: dev"
+          echo "Timestamp: $(date)"
           echo ""
           
           if [ "$ACTION" = "apply" ]; then

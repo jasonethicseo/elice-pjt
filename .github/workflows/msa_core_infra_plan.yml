@@ -159,7 +159,7 @@ jobs:
             echo "has_dangerous=true" >> $GITHUB_OUTPUT
             
             # Show what resources would be affected
-            echo "📋 Affected resources:"
+            echo "Affected resources:"
             jq -r '.resource_changes[]
                      | select(.change.actions | 
                        (index("delete") or 
@@ -189,15 +189,15 @@ jobs:
       #     token: ${{ secrets.GITHUB_TOKEN }}
       #     issue-number: ${{ github.event.pull_request.number }}
       #     body: |
-      #       ## 🏗️ Core Infrastructure Terraform Plan
+      #       ## Core Infrastructure Terraform Plan
       #       ${{ steps.summary.outputs.added }} to add  
       #       ${{ steps.summary.outputs.updated }} to change  
       #       ${{ steps.summary.outputs.destroyed }} to destroy  
 
-      #       ${{ steps.check_dangerous.outputs.has_dangerous == 'true' && '🚨 **DANGEROUS ACTIONS DETECTED!**' || '✅ **SAFE: Only create/update actions**' }}
+      #       ${{ steps.check_dangerous.outputs.has_dangerous == 'true' && ' **DANGEROUS ACTIONS DETECTED!**' || ' **SAFE: Only create/update actions**' }}
 
       #       <details>
-      #       <summary>📋 Full Plan JSON (artifact)</summary>
+      #       <summary> Full Plan JSON (artifact)</summary>
             
       #       전체 Plan 보기 → 워크플로우 아티팩트의 `terraform-plan-json` 다운로드  
       #       </details>

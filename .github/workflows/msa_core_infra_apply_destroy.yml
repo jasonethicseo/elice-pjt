@@ -190,7 +190,7 @@ jobs:
             echo "has_dangerous=true" >> $GITHUB_OUTPUT
             
             # Show what resources would be affected
-            echo "📋 Affected resources:"
+            echo "Affected resources:"
             jq -r '.resource_changes[]
                      | select(.change.actions | 
                        (index("delete") or 
@@ -257,7 +257,7 @@ jobs:
         run: |
           echo "Core Infrastructure deployment completed successfully!"
           echo ""
-          echo "📋 Summary:"
+          echo "Summary:"
           terraform output -json | jq -r 'to_entries[] | "  \(.key): \(.value.value)"'
           echo ""
           echo "You can now deploy domain modules using the MSA Domain Modules workflow."

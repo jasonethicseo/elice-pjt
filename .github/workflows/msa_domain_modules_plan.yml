@@ -156,7 +156,7 @@ jobs:
             echo "has_dangerous=true" >> $GITHUB_OUTPUT
             
             # Show what resources would be affected
-            echo "📋 Affected resources in domain ${{ matrix.domain }}:"
+            echo "Affected resources in domain ${{ matrix.domain }}:"
             jq -r '.resource_changes[]
                      | select(.change.actions | 
                        (index("delete") or 
