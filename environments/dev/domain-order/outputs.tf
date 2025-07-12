@@ -19,20 +19,16 @@ output "order_service_account_name" {
 # Database outputs
 output "order_db_cluster_endpoint" {
   description = "Aurora cluster endpoint for order database"
-  value       = module.order_aurora.aurora_cluster_endpoint
+  value       = module.order_aurora.endpoint
   sensitive   = true
 }
 
 output "order_db_cluster_reader_endpoint" {
   description = "Aurora cluster reader endpoint for order database"
-  value       = module.order_aurora.aurora_cluster_reader_endpoint
+  value       = module.order_aurora.ro_endpoint
   sensitive   = true
 }
 
-output "order_db_cluster_id" {
-  description = "Aurora cluster identifier for order database"
-  value       = module.order_aurora.aurora_cluster_id
-}
 
 # S3 outputs
 output "order_s3_bucket_name" {

@@ -11,41 +11,45 @@ resource "aws_ecr_repository" "service_repo" {
     scan_on_push = var.image_scan_on_push
   }
 
-  lifecycle_policy {
-    policy = jsonencode({
-      rules = [
-        {
-          rulePriority = 1
-          description  = "Keep last 10 production images"
-          selection = {
-            tagStatus     = "tagged"
-            tagPrefixList = ["prod"]
-            countType     = "imageCountMoreThan"
-            countNumber   = 10
-          }
-          action = {
-            type = "expire"
-          }
-        },
-        {
-          rulePriority = 2
-          description  = "Keep last 5 development images"
-          selection = {
-            tagStatus   = "untagged"
-            countType   = "imageCountMoreThan"
-            countNumber = 5
-          }
-          action = {
-            type = "expire"
-          }
-        }
-      ]
-    })
-  }
-
   tags = merge(var.tags, {
     Domain  = var.domain
     Service = "all"
+  })
+}
+
+# ECR Lifecycle Policy (separate resource)
+resource "aws_ecr_lifecycle_policy" "service_repo_policy" {
+  for_each   = toset(var.service_names)
+  repository = aws_ecr_repository.service_repo[each.key].name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 10 production images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["prod"]
+          countType     = "imageCountMoreThan"
+          countNumber   = 10
+        }
+        action = {
+          type = "expire"
+        }
+      },
+      {
+        rulePriority = 2
+        description  = "Keep last 5 development images"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "imageCountMoreThan"
+          countNumber = 5
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
   })
 }
 

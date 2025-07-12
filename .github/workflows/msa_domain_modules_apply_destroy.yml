@@ -1,0 +1,276 @@
+name: 'MSA Domain Modules - Apply/Destroy'
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
+      domains:
+        description: 'Domains to deploy (comma-separated: user,product,order or "all")'
+        required: true
+        default: 'all'
+      confirm_destroy:
+        description: 'Type DESTROY to confirm deletion'
+        required: false
+        default: ''
+      skip_plan:
+        description: 'Skip plan validation (not recommended)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: ca-central-1
+  TF_BUCKET_NAME: jasonseo-dev-terraform-state
+  TF_DYNAMODB_TABLE: jasonseo-dev-terraform-lock
+
+jobs:
+  parse_domains:
+    name: 'Parse Domain Selection'
+    runs-on: ubuntu-latest
+    outputs:
+      domains: ${{ steps.parse.outputs.domains }}
+    steps:
+      - name: Parse domain input
+        id: parse
+        run: |
+          INPUT_DOMAINS="${{ github.event.inputs.domains }}"
+          
+          if [ "$INPUT_DOMAINS" = "all" ]; then
+            DOMAINS='["user", "product", "order"]'
+          else
+            # Convert comma-separated string to JSON array
+            IFS=',' read -ra DOMAIN_ARRAY <<< "$INPUT_DOMAINS"
+            DOMAINS="["
+            for domain in "${DOMAIN_ARRAY[@]}"; do
+              domain=$(echo "$domain" | xargs) # trim whitespace
+              if [[ "$domain" =~ ^(user|product|order)$ ]]; then
+                DOMAINS="${DOMAINS}\"$domain\","
+              else
+                echo "❌ Invalid domain: $domain. Must be one of: user, product, order"
+                exit 1
+              fi
+            done
+            DOMAINS="${DOMAINS%,}]"
+          fi
+          
+          echo "domains=$DOMAINS" >> $GITHUB_OUTPUT
+          echo "Selected domains: $DOMAINS"
+
+  check_core_infrastructure:
+    name: 'Check Core Infrastructure'
+    runs-on: ubuntu-latest
+    outputs:
+      core_exists: ${{ steps.check.outputs.core_exists }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check Core Infrastructure State
+        id: check
+        run: |
+          if aws s3api head-object --bucket "${{ env.TF_BUCKET_NAME }}" --key "terraform/dev/core-infra/terraform.tfstate" --region "${{ env.AWS_REGION }}" > /dev/null 2>&1; then
+            echo "✅ Core infrastructure state found"
+            echo "core_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Core infrastructure state not found"
+            echo "core_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+  terraform_apply_destroy_domains:
+    name: 'Apply/Destroy Domain'
+    runs-on: ubuntu-latest
+    needs: [parse_domains, check_core_infrastructure]
+    if: needs.check_core_infrastructure.outputs.core_exists == 'true'
+    strategy:
+      matrix:
+        domain: ${{ fromJson(needs.parse_domains.outputs.domains) }}
+      fail-fast: false
+    environment: 
+      name: ${{ github.event.inputs.action == 'destroy' && 'production' || 'development' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: '1.8.0'
+
+      - name: Terraform Init - Domain ${{ matrix.domain }}
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.TF_BUCKET_NAME }}" \
+            -backend-config="key=terraform/dev/domain-${{ matrix.domain }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.TF_DYNAMODB_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Plan - Domain ${{ matrix.domain }}
+        if: github.event.inputs.skip_plan == 'false'
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          if [ "${{ github.event.inputs.action }}" = "destroy" ]; then
+            terraform plan -destroy -out=tfplan-${{ matrix.domain }} -input=false
+          else
+            terraform plan -out=tfplan-${{ matrix.domain }} -input=false
+          fi
+
+      - name: Generate JSON Plan - Domain ${{ matrix.domain }}
+        if: github.event.inputs.skip_plan == 'false'
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: terraform show -json tfplan-${{ matrix.domain }} > plan.json
+
+      - name: Check for Dangerous Actions (delete/replace) - Domain ${{ matrix.domain }}
+        if: github.event.inputs.skip_plan == 'false' && github.event.inputs.action == 'apply'
+        id: check_dangerous
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          if jq '.resource_changes[]
+                   | select(.change.actions | 
+                     (index("delete") or 
+                      (index("delete") and index("create"))))' plan.json \
+             | grep -q .; then
+            echo "⚠️  Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}"
+            echo "has_dangerous=true" >> $GITHUB_OUTPUT
+            
+            # Show what resources would be affected
+            echo "📋 Affected resources in domain ${{ matrix.domain }}:"
+            jq -r '.resource_changes[]
+                     | select(.change.actions | 
+                       (index("delete") or 
+                        (index("delete") and index("create"))))
+                     | "  - \(.address): \(.change.actions | join(","))"' plan.json
+          else
+            echo "✅ Only safe actions (create/update) detected in domain ${{ matrix.domain }}"
+            echo "has_dangerous=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate Destroy Prerequisites - Domain ${{ matrix.domain }}
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          if [ "${{ github.event.inputs.confirm_destroy }}" != "DESTROY" ]; then
+            echo "❌ ERROR: Destroy confirmation not provided for domain ${{ matrix.domain }}."
+            echo "Please type 'DESTROY' in the confirm_destroy input to proceed."
+            exit 1
+          fi
+
+      - name: Fail if Dangerous Actions Detected - Domain ${{ matrix.domain }}
+        if: github.event.inputs.skip_plan == 'false' && github.event.inputs.action == 'apply' && steps.check_dangerous.outputs.has_dangerous == 'true'
+        run: |
+          echo "🚨 ERROR: Dangerous actions (delete/replace) detected in domain ${{ matrix.domain }}!"
+          echo ""
+          echo "❌ BLOCKED: Only create and update actions are allowed for safety."
+          echo "⚠️  This could cause downtime for this domain's services."
+          echo ""
+          echo "🔍 If this change is intentional and necessary:"
+          echo "  1. Review the plan output carefully"
+          echo "  2. Coordinate with the domain team"
+          echo "  3. Schedule maintenance window"
+          echo "  4. Use skip_plan=true for emergency override"
+          exit 1
+
+      - name: Terraform Apply - Domain ${{ matrix.domain }}
+        if: github.event.inputs.action == 'apply'
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          if [ "${{ github.event.inputs.skip_plan }}" = "true" ]; then
+            terraform apply -auto-approve -input=false
+          else
+            terraform apply -auto-approve tfplan-${{ matrix.domain }}
+          fi
+
+      - name: Terraform Destroy - Domain ${{ matrix.domain }}
+        if: github.event.inputs.action == 'destroy'
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          if [ "${{ github.event.inputs.skip_plan }}" = "true" ]; then
+            terraform destroy -auto-approve -input=false
+          else
+            terraform apply -auto-approve tfplan-${{ matrix.domain }}
+          fi
+
+      - name: Post Apply Summary - Domain ${{ matrix.domain }}
+        if: github.event.inputs.action == 'apply'
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          echo "🎉 Domain ${{ matrix.domain }} deployment completed successfully!"
+          echo ""
+          echo "📋 Summary:"
+          terraform output -json | jq -r 'to_entries[] | "  \(.key): \(.value.value)"' || echo "  No outputs available"
+          echo ""
+          echo "✅ Domain ${{ matrix.domain }} is ready for application deployment."
+
+      - name: Post Destroy Summary - Domain ${{ matrix.domain }}
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          echo "🗑️  Domain ${{ matrix.domain }} destroyed successfully!"
+
+  fail_if_no_core:
+    name: 'Fail if Core Infrastructure Missing'
+    runs-on: ubuntu-latest
+    needs: [check_core_infrastructure]
+    if: needs.check_core_infrastructure.outputs.core_exists == 'false'
+    steps:
+      - name: Fail with error message
+        run: |
+          echo "❌ ERROR: Core infrastructure must be deployed before domain modules."
+          echo ""
+          echo "Please deploy core infrastructure first using:"
+          echo "  🏗️  MSA Core Infrastructure - Apply/Destroy workflow"
+          echo ""
+          echo "Current status:"
+          echo "  ❌ Core infrastructure: Not found"
+          echo "  ⏳ Domain modules: Waiting for core infrastructure"
+          exit 1
+
+  summary:
+    name: 'Deployment Summary'
+    runs-on: ubuntu-latest
+    needs: [parse_domains, check_core_infrastructure, terraform_apply_destroy_domains]
+    if: always() && needs.check_core_infrastructure.outputs.core_exists == 'true'
+    steps:
+      - name: Generate Summary
+        run: |
+          ACTION="${{ github.event.inputs.action }}"
+          DOMAINS="${{ needs.parse_domains.outputs.domains }}"
+          
+          echo "🎯 $ACTION Operation Summary"
+          echo "=========================="
+          echo ""
+          echo "📋 Target Domains: $DOMAINS"
+          echo "🔧 Action: $ACTION"
+          echo "🌍 Environment: dev"
+          echo "📅 Timestamp: $(date)"
+          echo ""
+          
+          if [ "$ACTION" = "apply" ]; then
+            echo "✅ Domain modules have been deployed successfully!"
+            echo ""
+            echo "🚀 Next Steps:"
+            echo "  1. Verify domain resources in AWS Console"
+            echo "  2. Deploy applications to the created namespaces"
+            echo "  3. Configure ArgoCD for GitOps deployments"
+          else
+            echo "🗑️  Domain modules have been destroyed successfully!"
+            echo ""
+            echo "ℹ️  Core infrastructure remains available for future deployments."
+          fi

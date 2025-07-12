@@ -19,20 +19,16 @@ output "product_service_account_name" {
 # Database outputs
 output "product_db_cluster_endpoint" {
   description = "Aurora cluster endpoint for product database"
-  value       = module.product_aurora.aurora_cluster_endpoint
+  value       = module.product_aurora.endpoint
   sensitive   = true
 }
 
 output "product_db_cluster_reader_endpoint" {
   description = "Aurora cluster reader endpoint for product database"
-  value       = module.product_aurora.aurora_cluster_reader_endpoint
+  value       = module.product_aurora.ro_endpoint
   sensitive   = true
 }
 
-output "product_db_cluster_id" {
-  description = "Aurora cluster identifier for product database"
-  value       = module.product_aurora.aurora_cluster_id
-}
 
 # S3 outputs
 output "product_s3_bucket_name" {

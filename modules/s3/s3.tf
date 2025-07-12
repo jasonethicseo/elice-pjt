@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "s3-bucket" {
-  bucket = "aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket"
+  bucket = "${var.stage}-${var.servicename}-${var.bucket_name}"
 ### add after create logging bucket
 #  logging {
 #    target_bucket = var.logging_bucket_id
@@ -7,7 +7,7 @@ resource "aws_s3_bucket" "s3-bucket" {
 #  }
 
   tags = merge(tomap({
-         Name = "aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket"}),
+         Name = "${var.stage}-${var.servicename}-${var.bucket_name}"}),
         var.tags)
 
 }
@@ -136,8 +136,8 @@ resource "aws_s3_bucket_policy" "s3-public-bucket-policy" {
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket",
-        "arn:aws:s3:::aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket/*"            
+        "arn:aws:s3:::${var.stage}-${var.servicename}-${var.bucket_name}",
+        "arn:aws:s3:::${var.stage}-${var.servicename}-${var.bucket_name}/*"            
       ]
     },
     {
@@ -153,8 +153,8 @@ resource "aws_s3_bucket_policy" "s3-public-bucket-policy" {
         "s3:PutObjectAcl"
       ],
       "Resource": [
-        "arn:aws:s3:::aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket",
-        "arn:aws:s3:::aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket/*"            
+        "arn:aws:s3:::${var.stage}-${var.servicename}-${var.bucket_name}",
+        "arn:aws:s3:::${var.stage}-${var.servicename}-${var.bucket_name}/*"            
       ]
     },
     {
@@ -320,7 +320,7 @@ resource "aws_s3_bucket_policy" "s3-private-cloudfront-bucket-policy" {
           "s3:GetObject"
         ],
         "Resource": [
-            "arn:aws:s3:::aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket/apks/debug/*"
+            "arn:aws:s3:::${var.stage}-${var.servicename}-${var.bucket_name}/apks/debug/*"
         ]
       }
     ]
@@ -335,10 +335,11 @@ resource "aws_s3_bucket_cors_configuration" "s3-public-cors-config" {
   dynamic "cors_rule" {
     for_each = var.cors_configs
     content {
-      allowed_headers = cors_configs.value["allowed_headers"] // list
-      allowed_methods = cors_configs.value["allowed_methods"] // list
-      allowed_origins = cors_configs.value["allowed_origins"] // list
-      expose_headers  = cors_configs.value["expose_headers"] // list
+      allowed_headers = cors_rule.value["allowed_headers"]
+      allowed_methods = cors_rule.value["allowed_methods"]
+      allowed_origins = cors_rule.value["allowed_origins"]
+      expose_headers  = cors_rule.value["expose_headers"]
+      max_age_seconds = cors_rule.value["max_age_seconds"]
     }
   }
 }
@@ -346,7 +347,7 @@ resource "aws_s3_bucket_cors_configuration" "s3-public-cors-config" {
 ##Public bucket CDN
 resource "aws_cloudfront_origin_access_identity" "s3-cdn" {
   count   = var.isCFN ? 1 : 0 #(only when using CloudFront)
-  comment =  "aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket cdn access identity"
+  comment =  "${var.stage}-${var.servicename}-${var.bucket_name} cdn access identity"
 }
 
 resource "aws_cloudfront_distribution" "s3-distribution" {
@@ -369,7 +370,7 @@ resource "aws_cloudfront_distribution" "s3-distribution" {
   enabled             = true
   http_version        = "http2"
   is_ipv6_enabled     = true
-  comment             = "aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket cdn"
+  comment             = "${var.stage}-${var.servicename}-${var.bucket_name} cdn"
   default_root_object = "index.html"
 
   # 임시 로깅 조건부 생성
@@ -423,7 +424,7 @@ resource "aws_cloudfront_distribution" "s3-distribution" {
   web_acl_id = var.waf_acl_id
 
   tags = {
-    Name = "aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket"
+    Name = "${var.stage}-${var.servicename}-${var.bucket_name}"
     servicename = "${var.servicename}"
     stage = "${var.stage}"
     billing       = "aws_lg_biz@lgcns.com"
@@ -453,14 +454,14 @@ resource "aws_cloudfront_public_key" "private-distribution-sign-pub-key" {
   count       = (!var.ispub && var.isCFN) ? 1 : 0 #(only when using CloudFront)
   comment     = "CFN public key for ${aws_s3_bucket.s3-bucket.id}"
   encoded_key = data.aws_ssm_parameter.private-distribution-sign-pub-key-data[0].value
-  name        = "aws-cfn-pubkey-${var.stage}-${var.servicename}-${var.bucket_name}"
+  name        = "cfn-pubkey-${var.stage}-${var.servicename}-${var.bucket_name}"
 }
 
 resource "aws_cloudfront_key_group" "private-distribution-sign-key-group" {
   count   = (!var.ispub && var.isCFN) ? 1 : 0 #(only when using CloudFront)
   comment = "CFN key group for ${aws_s3_bucket.s3-bucket.id}"
   items   = [aws_cloudfront_public_key.private-distribution-sign-pub-key[0].id]
-  name    = "aws-cfn-kg-${var.stage}-${var.servicename}-${var.bucket_name}"
+  name    = "cfn-kg-${var.stage}-${var.servicename}-${var.bucket_name}"
 }
 
 resource "aws_cloudfront_distribution" "s3-private-distribution" {
@@ -483,7 +484,7 @@ resource "aws_cloudfront_distribution" "s3-private-distribution" {
   enabled             = true
   http_version        = "http2"
   is_ipv6_enabled     = true
-  comment             = "aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket cdn"
+  comment             = "${var.stage}-${var.servicename}-${var.bucket_name} cdn"
   default_root_object = "index.html"
 
   logging_config {
@@ -535,7 +536,7 @@ resource "aws_cloudfront_distribution" "s3-private-distribution" {
   web_acl_id = var.waf_acl_id
 
   tags = {
-    Name = "aws-s3-${var.stage}-${var.servicename}-${var.bucket_name}-bucket"
+    Name = "${var.stage}-${var.servicename}-${var.bucket_name}"
     servicename = "${var.servicename}"
     stage = "${var.stage}"
     billing       = "aws_lg_biz@lgcns.com"
