@@ -167,61 +167,61 @@ jobs:
             echo "has_dangerous=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Comment Plan Results for Domain ${{ matrix.domain }}
-        if: github.event_name == 'pull_request' && steps.check_core.outputs.core_exists == 'true'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = require('fs');
-            const { execSync } = require('child_process');
-            
-            try {
-              const planJson = JSON.parse(fs.readFileSync('environments/dev/domain-${{ matrix.domain }}/plan.json', 'utf8'));
-              let added = 0;
-              let changed = 0;
-              let destroyed = 0;
+      # - name: Comment Plan Results for Domain ${{ matrix.domain }}
+      #   if: github.event_name == 'pull_request' && steps.check_core.outputs.core_exists == 'true'
+      #   uses: actions/github-script@v6
+      #   with:
+      #     script: |
+      #       const fs = require('fs');
+      #       const { execSync } = require('child_process');
+      #       
+      #       try {
+      #         const planJson = JSON.parse(fs.readFileSync('environments/dev/domain-${{ matrix.domain }}/plan.json', 'utf8'));
+      #         let added = 0;
+      #         let changed = 0;
+      #         let destroyed = 0;
 
-              if (planJson.resource_changes) {
-                planJson.resource_changes.forEach(change => {
-                  if (change.change.actions.includes('create')) {
-                    added++;
-                  }
-                  if (change.change.actions.includes('update')) {
-                    changed++;
-                  }
-                  if (change.change.actions.includes('delete')) {
-                    destroyed++;
-                  }
-                });
-              }
+      #         if (planJson.resource_changes) {
+      #           planJson.resource_changes.forEach(change => {
+      #             if (change.change.actions.includes('create')) {
+      #               added++;
+      #             }
+      #             if (change.change.actions.includes('update')) {
+      #               changed++;
+      #             }
+      #             if (change.change.actions.includes('delete')) {
+      #               destroyed++;
+      #             }
+      #           });
+      #         }
 
-              const summaryText = `Plan: ${added} to add, ${changed} to change, ${destroyed} to destroy.`;
-              const hasDangerous = '${{ steps.check_dangerous.outputs.has_dangerous }}' === 'true';
-              
-              const comment = `
-              ## 🏪 Domain ${{ matrix.domain }} Terraform Plan
-              
-              ${hasDangerous ? '🚨 **DANGEROUS ACTIONS DETECTED!**' : '✅ **SAFE: Only create/update actions**'}
-              
-              ${summaryText}
-              
-              <details>
-              <summary>📋 Full Plan Output for Domain ${{ matrix.domain }} (view as workflow artifact)</summary>
-              
-              The full Terraform plan output is too large to display here. Please refer to the workflow run artifacts for the complete plan.
-              
-              </details>
-              `;
-              
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-            } catch (error) {
-              console.error('Error posting comment:', error);
-            }
+      #         const summaryText = `Plan: ${added} to add, ${changed} to change, ${destroyed} to destroy.`;
+      #         const hasDangerous = '${{ steps.check_dangerous.outputs.has_dangerous }}' === 'true';
+      #         
+      #         const comment = `
+      #         ## 🏪 Domain ${{ matrix.domain }} Terraform Plan
+      #         
+      #         ${hasDangerous ? '🚨 **DANGEROUS ACTIONS DETECTED!**' : '✅ **SAFE: Only create/update actions**'}
+      #         
+      #         ${summaryText}
+      #         
+      #         <details>
+      #         <summary>📋 Full Plan Output for Domain ${{ matrix.domain }} (view as workflow artifact)</summary>
+      #         
+      #         The full Terraform plan output is too large to display here. Please refer to the workflow run artifacts for the complete plan.
+      #         
+      #         </details>
+      #         `;
+      #         
+      #         github.rest.issues.createComment({
+      #           issue_number: context.issue.number,
+      #           owner: context.repo.owner,
+      #           repo: context.repo.repo,
+      #           body: comment
+      #         });
+      #       } catch (error) {
+      #         console.error('Error posting comment:', error);
+      #       }
 
       - name: Fail if Core Infrastructure Missing
         if: steps.check_core.outputs.core_exists == 'false'

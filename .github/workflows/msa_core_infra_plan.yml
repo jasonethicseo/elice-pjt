@@ -182,25 +182,25 @@ jobs:
           echo "updated=${updated}">> $GITHUB_OUTPUT
           echo "destroyed=${destroyed}" >> $GITHUB_OUTPUT
 
-      - name: Post Plan Summary Comment
-        if: github.event_name == 'pull_request'
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ## 🏗️ Core Infrastructure Terraform Plan
-            ${{ steps.summary.outputs.added }} to add  
-            ${{ steps.summary.outputs.updated }} to change  
-            ${{ steps.summary.outputs.destroyed }} to destroy  
+      # - name: Post Plan Summary Comment
+      #   if: github.event_name == 'pull_request'
+      #   uses: peter-evans/create-or-update-comment@v4
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     issue-number: ${{ github.event.pull_request.number }}
+      #     body: |
+      #       ## 🏗️ Core Infrastructure Terraform Plan
+      #       ${{ steps.summary.outputs.added }} to add  
+      #       ${{ steps.summary.outputs.updated }} to change  
+      #       ${{ steps.summary.outputs.destroyed }} to destroy  
 
-            ${{ steps.check_dangerous.outputs.has_dangerous == 'true' && '🚨 **DANGEROUS ACTIONS DETECTED!**' || '✅ **SAFE: Only create/update actions**' }}
+      #       ${{ steps.check_dangerous.outputs.has_dangerous == 'true' && '🚨 **DANGEROUS ACTIONS DETECTED!**' || '✅ **SAFE: Only create/update actions**' }}
 
-            <details>
-            <summary>📋 Full Plan JSON (artifact)</summary>
+      #       <details>
+      #       <summary>📋 Full Plan JSON (artifact)</summary>
             
-            전체 Plan 보기 → 워크플로우 아티팩트의 `terraform-plan-json` 다운로드  
-            </details>
+      #       전체 Plan 보기 → 워크플로우 아티팩트의 `terraform-plan-json` 다운로드  
+      #       </details>
 
       - name: Fail if Dangerous Actions Detected
         if: steps.check_dangerous.outputs.has_dangerous == 'true'
