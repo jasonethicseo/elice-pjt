@@ -60,19 +60,29 @@ output "s3_bucket_regional_domain_name" {
   value       = module.s3_static.bucket_regional_domain_name
 }
 
+output "cloudfront_domain_name" {
+  description = "CloudFront distribution domain name"
+  value       = module.cloudfront_cdn.cloudfront_domain_name
+}
+
 output "cloudfront_distribution_id" {
   description = "CloudFront distribution ID"
   value       = module.cloudfront_cdn.cloudfront_distribution_id
 }
 
-output "cloudfront_distribution_domain" {
-  description = "CloudFront distribution domain"
-  value       = module.cloudfront_cdn.cloudfront_distribution_domain
+output "cloudfront_origin_access_identity" {
+  description = "CloudFront Origin Access Identity"
+  value       = module.cloudfront_cdn.origin_access_identity
 }
 
 output "openvpn_public_ip" {
   description = "OpenVPN server public IP"
-  value       = module.openvpn.public_ip
+  value       = module.openvpn.openvpn_public_ip
+}
+
+output "openvpn_instance_id" {
+  description = "OpenVPN instance ID"
+  value       = module.openvpn.openvpn_instance_id
 }
 
 output "minio_endpoint" {
