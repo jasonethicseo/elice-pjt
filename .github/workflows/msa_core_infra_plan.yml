@@ -143,9 +143,8 @@ jobs:
       - name: Generate JSON Plan
         working-directory: environments/dev/core-infra
         run: |
-          terraform show -json tfplan > raw_plan.json
-          cat raw_plan.json # Debugging: print raw_plan.json content
-          awk '/^{/{flag=1} flag' raw_plan.json | jq . > plan.json
+          # tfplan을 JSON으로 바로 저장 → 깨질 위험 없음
+          terraform show -json tfplan > plan.json
 
       - name: Check for Dangerous Actions (delete/replace)
         id: check_dangerous
