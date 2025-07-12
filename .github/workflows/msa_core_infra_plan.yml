@@ -11,7 +11,7 @@ on:
       - "modules/openvpn/**"
       - "modules/s3/**"
       - "modules/cloudfront/**"
-  pull_request_target:
+  pull_request:
     branches:
       - "main"
     paths:
