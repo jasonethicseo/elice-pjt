@@ -1,6 +1,6 @@
 resource "aws_eks_node_group" "eks-node-group" {
   cluster_name    = aws_eks_cluster.eks-cluster.name
-  node_group_name_prefix = "aws-eks-node-group-${var.stage}-${var.servicename}"
+  node_group_name_prefix = "eks-${substr(var.stage, 0, 4)}-"
   node_role_arn   = aws_iam_role.eks-node-role.arn
   subnet_ids      = var.subnet_ids
 
@@ -43,7 +43,7 @@ resource "aws_eks_node_group" "eks-node-group" {
 
 
 #resource "aws_autoscaling_policy" "node_group_policy" {
-#  name                   = "aws-eks-node-group-policy-${var.stage}-${var.servicename}"
+#  name                   = "eks-policy-${var.stage}"
 #  autoscaling_group_name = aws_eks_node_group.eks-node-group.resources.0.autoscaling_groups.0.name
 #  policy_type            = "TargetTrackingScaling"
 #  target_tracking_configuration {
