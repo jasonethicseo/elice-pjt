@@ -22,6 +22,11 @@ on:
       - "modules/s3/**"
       - "modules/cloudfront/**"
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 env:
   AWS_REGION: ca-central-1
   TF_BUCKET_NAME: jasonseo-dev-terraform-state
@@ -137,7 +142,9 @@ jobs:
 
       - name: Generate JSON Plan
         working-directory: environments/dev/core-infra
-        run: terraform show -json tfplan > plan.json
+        run: |
+          # tfplan을 JSON으로 바로 저장 → 깨질 위험 없음
+          terraform show -json tfplan > plan.json
 
       - name: Check for Dangerous Actions (delete/replace)
         id: check_dangerous
@@ -163,42 +170,37 @@ jobs:
             echo "has_dangerous=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Comment Plan Results
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = require('fs');
-            const { execSync } = require('child_process');
+      - name: Summarize Terraform Plan
+        id: summary
+        working-directory: environments/dev/core-infra
+
+        run: |
+          added=$(jq '[.resource_changes[] | select(.change.actions[]=="create")] | length' plan.json)
+          updated=$(jq '[.resource_changes[] | select(.change.actions[]=="update")] | length' plan.json)
+          destroyed=$(jq '[.resource_changes[] | select(.change.actions[]=="delete")] | length' plan.json)
+          echo "added=${added}"    >> $GITHUB_OUTPUT
+          echo "updated=${updated}">> $GITHUB_OUTPUT
+          echo "destroyed=${destroyed}" >> $GITHUB_OUTPUT
+
+      # - name: Post Plan Summary Comment
+      #   if: github.event_name == 'pull_request'
+      #   uses: peter-evans/create-or-update-comment@v4
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     issue-number: ${{ github.event.pull_request.number }}
+      #     body: |
+      #       ## 🏗️ Core Infrastructure Terraform Plan
+      #       ${{ steps.summary.outputs.added }} to add  
+      #       ${{ steps.summary.outputs.updated }} to change  
+      #       ${{ steps.summary.outputs.destroyed }} to destroy  
+
+      #       ${{ steps.check_dangerous.outputs.has_dangerous == 'true' && '🚨 **DANGEROUS ACTIONS DETECTED!**' || '✅ **SAFE: Only create/update actions**' }}
+
+      #       <details>
+      #       <summary>📋 Full Plan JSON (artifact)</summary>
             
-            try {
-              const planOutput = execSync('cd environments/dev/core-infra && terraform show tfplan', { encoding: 'utf8' });
-              const hasDangerous = '${{ steps.check_dangerous.outputs.has_dangerous }}' === 'true';
-              
-              const comment = `
-              ## 🏗️ Core Infrastructure Terraform Plan
-              
-              ${hasDangerous ? '🚨 **DANGEROUS ACTIONS DETECTED!**' : '✅ **SAFE: Only create/update actions**'}
-              
-              <details>
-              <summary>📋 Plan Output</summary>
-              
-              \`\`\`
-              ${planOutput}
-              \`\`\`
-              
-              </details>
-              `;
-              
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-            } catch (error) {
-              console.error('Error posting comment:', error);
-            }
+      #       전체 Plan 보기 → 워크플로우 아티팩트의 `terraform-plan-json` 다운로드  
+      #       </details>
 
       - name: Fail if Dangerous Actions Detected
         if: steps.check_dangerous.outputs.has_dangerous == 'true'
@@ -214,3 +216,15 @@ jobs:
           echo "  3. Plan for maintenance window"
           echo "  4. Use manual override if absolutely required"
           exit 1
+
+      - name: Upload Terraform Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: environments/dev/core-infra/tfplan
+
+      - name: Upload Terraform Plan JSON Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-json
+          path: environments/dev/core-infra/plan.json

@@ -8,8 +8,8 @@ metadata:
   labels:
     name: argocd
 ---
-# Use the official ArgoCD installation
-# Apply this first: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# Use the official ArgoCD HA installation
+# Apply this first: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/ha/install.yaml
 
 # Then apply the custom configurations below:
 

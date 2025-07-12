@@ -114,3 +114,9 @@ variable "smoke_test_repository_arn"{
 variable "sg_allow_comm_ing" {
   type = list
 }
+
+variable "enable_cluster_autoscaler" {
+  description = "Enable cluster autoscaler"
+  type        = bool
+  default     = false
+}

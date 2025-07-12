@@ -33,6 +33,14 @@ resource "aws_eks_cluster" "eks-cluster" {
   tags = var.tags
 }
 
+resource "aws_iam_openid_connect_provider" "eks_oidc" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = ["9e99a48a9960b14926bb7f3b02e22da2b0ab7280"]
+  url             = aws_eks_cluster.eks-cluster.identity[0].oidc[0].issuer
+
+  tags = var.tags
+}
+
 
 resource "aws_cloudwatch_log_group" "ekscluster-cluster-log-group" {
   # The log group name format is /aws/eks/<cluster-name>/cluster
