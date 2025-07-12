@@ -129,3 +129,34 @@ module "cloudfront_cdn" {
   price_class         = "PriceClass_100"
   tags                = merge(local.common_tags, var.tags)
 }
+
+# MinIO Object Storage for S3-compatible storage
+module "minio" {
+  source = "../../../modules/minio"
+
+  stage           = var.stage
+  servicename     = var.servicename
+  vpc_id          = module.vpc.vpc_id
+  subnet_ids      = module.vpc.service_subnet_ids
+  
+  # MinIO 설정
+  minio_root_user     = var.minio_root_user
+  minio_root_password = var.minio_root_password
+  minio_storage_size  = var.minio_storage_size
+  minio_replicas      = var.minio_replicas
+  minio_image_tag     = var.minio_image_tag
+  
+  # 리소스 설정
+  minio_cpu_request    = var.minio_cpu_request
+  minio_memory_request = var.minio_memory_request
+  minio_cpu_limit      = var.minio_cpu_limit
+  minio_memory_limit   = var.minio_memory_limit
+  
+  # 외부 접근 설정
+  enable_external_access = var.enable_external_access
+  
+  # 기본 버킷
+  default_buckets = var.default_buckets
+  
+  tags = merge(local.common_tags, var.tags)
+}

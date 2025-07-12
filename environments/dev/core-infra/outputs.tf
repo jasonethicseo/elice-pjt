@@ -75,3 +75,29 @@ output "service_subnet_az2_id" {
 #   description = "Domain name of the CloudFront distribution"
 #   value       = module.cloudfront_cdn.cloudfront_domain_name
 # }
+
+# MinIO outputs
+output "minio_endpoint" {
+  description = "MinIO endpoint URL"
+  value       = module.minio.endpoint
+}
+
+output "minio_console_endpoint" {
+  description = "MinIO console endpoint URL"
+  value       = module.minio.console_endpoint
+}
+
+output "minio_service_name" {
+  description = "MinIO service name"
+  value       = module.minio.service_name
+}
+
+output "minio_external_api_endpoint" {
+  description = "MinIO external API endpoint"
+  value       = module.minio.external_api_endpoint
+}
+
+output "minio_external_console_endpoint" {
+  description = "MinIO external console endpoint"
+  value       = module.minio.external_console_endpoint
+}

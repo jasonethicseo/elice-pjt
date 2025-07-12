@@ -173,3 +173,63 @@ variable "kms_arn" {
   type    = string
   default = ""
 }
+
+# MinIO variables
+variable "minio_root_user" {
+  type    = string
+  default = "minioadmin"
+}
+
+variable "minio_root_password" {
+  type    = string
+  default = "minioadmin123"
+  sensitive = true
+}
+
+variable "minio_storage_size" {
+  type    = string
+  default = "10Gi"
+}
+
+variable "minio_replicas" {
+  type    = number
+  default = 1
+}
+
+variable "minio_image_tag" {
+  type    = string
+  default = "latest"
+}
+
+variable "minio_cpu_request" {
+  type    = string
+  default = "250m"
+}
+
+variable "minio_memory_request" {
+  type    = string
+  default = "256Mi"
+}
+
+variable "minio_cpu_limit" {
+  type    = string
+  default = "500m"
+}
+
+variable "minio_memory_limit" {
+  type    = string
+  default = "512Mi"
+}
+
+variable "enable_external_access" {
+  type    = bool
+  default = true  # dev 환경에서는 외부 접근 허용
+}
+
+variable "default_buckets" {
+  type    = list(string)
+  default = [
+    "uploads", "backups", "logs", 
+    "user-profiles", "product-images", "order-receipts"
+  ]
+}
