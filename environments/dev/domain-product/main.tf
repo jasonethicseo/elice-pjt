@@ -14,14 +14,24 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Get core infrastructure outputs
+# Get core infrastructure outputs (conditionally)
 data "terraform_remote_state" "core_infra" {
+  count = var.mock_mode ? 0 : 1
+  
   backend = "s3"
   config = {
     bucket = "jasonseo-dev-terraform-state"
     key    = "terraform/dev/core-infra/terraform.tfstate"
     region = "ca-central-1"
   }
+}
+
+# Local values that use either real or mock data (safe with try() fallback)
+locals {
+  vpc_id             = var.mock_mode ? var.mock_vpc_id : try(data.terraform_remote_state.core_infra[0].outputs.vpc_id, var.mock_vpc_id)
+  db_subnet_ids      = var.mock_mode ? var.mock_db_subnet_ids : try(data.terraform_remote_state.core_infra[0].outputs.db_subnet_ids, var.mock_db_subnet_ids)
+  service_subnet_ids = var.mock_mode ? var.mock_service_subnet_ids : try(data.terraform_remote_state.core_infra[0].outputs.service_subnet_ids, var.mock_service_subnet_ids)
+  eks_cluster_name   = var.mock_mode ? var.mock_eks_cluster_name : try(data.terraform_remote_state.core_infra[0].outputs.eks_cluster_name, var.mock_eks_cluster_name)
 }
 
 locals {
@@ -75,8 +85,8 @@ module "product_aurora" {
 
   # 네트워크 구성 (core-infra에서 가져옴)
   az                      = var.az
-  subnet_ids              = data.terraform_remote_state.core_infra.outputs.db_subnet_ids
-  network_vpc_id          = data.terraform_remote_state.core_infra.outputs.vpc_id
+  subnet_ids              = local.db_subnet_ids
+  network_vpc_id          = local.vpc_id
   sg_allow_ingress_list_aurora = var.sg_allow_ingress_list_aurora
   sg_allow_ingress_sg_list_aurora = var.sg_allow_ingress_sg_list_aurora
 

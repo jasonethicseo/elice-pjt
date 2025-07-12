@@ -5,6 +5,37 @@ variable "aws_region" {
   default = "ca-central-1"
 }
 
+# Development mode support
+variable "mock_mode" {
+  description = "Enable mock mode for development without core infrastructure"
+  type        = bool
+  default     = false
+}
+
+variable "mock_vpc_id" {
+  description = "Mock VPC ID for development"
+  type        = string
+  default     = "vpc-mock12345678"
+}
+
+variable "mock_db_subnet_ids" {
+  description = "Mock database subnet IDs for development"
+  type        = list(string)
+  default     = ["subnet-mockdb001", "subnet-mockdb002"]
+}
+
+variable "mock_service_subnet_ids" {
+  description = "Mock service subnet IDs for development"
+  type        = list(string)
+  default     = ["subnet-mocksvc001", "subnet-mocksvc002"]
+}
+
+variable "mock_eks_cluster_name" {
+  description = "Mock EKS cluster name for development"
+  type        = string
+  default     = "mock-eks-cluster"
+}
+
 variable "stage" {
   type    = string
   default = "dev"
