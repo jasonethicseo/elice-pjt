@@ -142,7 +142,10 @@ jobs:
 
       - name: Generate JSON Plan
         working-directory: environments/dev/core-infra
-        run: terraform show -json tfplan | jq . > plan.json
+        run: |
+          terraform show -json tfplan > raw_plan.json
+          cat raw_plan.json
+          jq . raw_plan.json > plan.json
 
       - name: Check for Dangerous Actions (delete/replace)
         id: check_dangerous
