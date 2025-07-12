@@ -91,15 +91,36 @@ jobs:
         with:
           terraform_version: '1.8.0'
 
-      - name: Check Core Infrastructure State
+      - name: Check Core Infrastructure State and Content
         id: check_core
         run: |
-          if aws s3api head-object --bucket "${{ env.TF_BUCKET_NAME }}" --key "terraform/dev/core-infra/terraform.tfstate" --region "${{ env.AWS_REGION }}" > /dev/null 2>&1; then
-            echo "✅ Core infrastructure state found - using integrated mode"
-            echo "mode=integrated" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️  Core infrastructure state not found - using mock mode"
+          BUCKET="${{ env.TF_BUCKET_NAME }}"
+          KEY="terraform/dev/core-infra/terraform.tfstate"
+          REGION="${{ env.AWS_REGION }}"
+          
+          echo "🔍 Checking core infrastructure state..."
+          
+          # 1단계: tfstate 파일 존재 확인
+          if ! aws s3api head-object --bucket "$BUCKET" --key "$KEY" --region "$REGION" > /dev/null 2>&1; then
+            echo "📋 tfstate file not found - using mock mode"
             echo "mode=mock" >> $GITHUB_OUTPUT
+            echo "reason=no_tfstate" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # 2단계: tfstate 내용 확인 (outputs가 실제로 있는지)
+          echo "📄 tfstate file exists, checking content..."
+          OUTPUTS_COUNT=$(aws s3 cp s3://$BUCKET/$KEY - 2>/dev/null | jq '.outputs | length' 2>/dev/null || echo "0")
+          
+          if [ "$OUTPUTS_COUNT" -eq 0 ] || [ "$OUTPUTS_COUNT" = "null" ]; then
+            echo "⚠️  tfstate exists but no outputs found - using mock mode"
+            echo "📝 This happens when infrastructure was destroyed but tfstate file remains"
+            echo "mode=mock" >> $GITHUB_OUTPUT
+            echo "reason=empty_outputs" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Core infrastructure fully available with $OUTPUTS_COUNT outputs - using integrated mode"
+            echo "mode=integrated" >> $GITHUB_OUTPUT
+            echo "reason=fully_available" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Mock Variables for Development - Domain ${{ matrix.domain }}
@@ -199,18 +220,34 @@ jobs:
             
             try {
               const mode = '${{ steps.check_core.outputs.mode }}';
+              const reason = '${{ steps.check_core.outputs.reason }}';
               const planOutput = execSync('cd environments/dev/domain-${{ matrix.domain }} && terraform show tfplan-${{ matrix.domain }}', { encoding: 'utf8' });
               const hasDangerous = '${{ steps.check_dangerous.outputs.has_dangerous }}' === 'true';
               
               const modeIcon = mode === 'mock' ? '🧪' : '🔗';
               const modeText = mode === 'mock' ? 'DEVELOPMENT MODE (Mock Data)' : 'INTEGRATED MODE (Real Core-Infra)';
               
+              let reasonText = '';
+              if (mode === 'mock') {
+                if (reason === 'no_tfstate') {
+                  reasonText = '📋 Core infrastructure not deployed yet';
+                } else if (reason === 'empty_outputs') {
+                  reasonText = '⚠️ Core infrastructure was destroyed but tfstate remains';
+                } else {
+                  reasonText = '🧪 Mock mode enabled for development';
+                }
+              } else {
+                reasonText = '✅ Core infrastructure fully operational';
+              }
+              
               const comment = `
               ## ${modeIcon} Domain ${{ matrix.domain }} Terraform Plan - ${modeText}
               
+              **Status**: ${reasonText}
+              
               ${hasDangerous ? '🚨 **DANGEROUS ACTIONS DETECTED!**' : '✅ **SAFE: Only create/update actions**'}
               
-              ${mode === 'mock' ? '⚠️ **Note**: This plan uses mock data for development. Real deployment requires core infrastructure.' : ''}
+              ${mode === 'mock' ? '⚠️ **Note**: This plan uses mock data. Real deployment requires core infrastructure to be deployed first.' : ''}
               
               <details>
               <summary>📋 Plan Output for Domain ${{ matrix.domain }}</summary>
