@@ -8,13 +8,17 @@ on:
       - "environments/dev/domain-*/**"
       - "modules/microservice-base/**"
       - "modules/aurora/**"
-  pull_request:
+  pull_request_target:
     branches:
       - "main"
     paths:
       - "environments/dev/domain-*/**"
       - "modules/microservice-base/**"
       - "modules/aurora/**"
+
+permissions:
+  contents: read
+  issues: write
 
 env:
   AWS_REGION: ca-central-1
