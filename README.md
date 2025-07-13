@@ -1,6 +1,6 @@
 # Microservices Platform on AWS EKS
 
-> **완전한 MSA 환경**: Kubernetes 기반의 엔터프라이즈급 마이크로서비스 플랫폼  
+> **완전한 MSA 환경**: Kubernetes 기반의 마이크로서비스 플랫폼  
 > **Multi-Environment**: Development, Staging, Production 환경 지원  
 > **S3 호환 스토리지**: MinIO를 통한 비용 효율적인 객체 스토리지  
 
@@ -164,7 +164,7 @@ git push origin main  # 자동으로 plan 및 apply 실행
 
 ### **Two-Repository Architecture**
 
-이 프로젝트는 **보안과 투명성**을 모두 달성하기 위한 혁신적인 구조를 사용합니다:
+이 프로젝트는 **보안과 투명성**을 모두 달성하기 위한 구조를 사용합니다:
 
 ```yaml
 Repository Structure:
@@ -175,7 +175,7 @@ Repository Structure:
     - MinIO 객체 스토리지 구현
     
   Private Repository (elice-pjt-modules):
-    - 엔터프라이즈급 핵심 모듈
+    - 프로젝트 핵심 모듈
     - 프로덕션 보안 설정
     - 고급 네트워킹 구성
     - 상용 환경 최적화 코드
