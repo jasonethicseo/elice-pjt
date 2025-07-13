@@ -114,7 +114,12 @@ jobs:
         with:
           repository: jasonethicseo/elice-pjt-modules
           token: ${{ secrets.PRIVATE_MODULES_TOKEN }}
-          path: modules
+          path: temp-modules
+          
+      - name: Setup modules directory
+        run: |
+          cp -r temp-modules/modules ./
+          rm -rf temp-modules
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
