@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "user-notification-service.fullname" . }}
+  labels:
+    {{- include "user-notification-service.labels" . | nindent 4 }}
+    component: notification
+    domain: user
+data:
+  config.yaml: |
+    channels:
+      email:
+        enabled: {{ .Values.config.channels.email.enabled }}
+        provider: {{ .Values.config.channels.email.provider }}
+        retryAttempts: {{ .Values.config.channels.email.retryAttempts }}
+        timeout: {{ .Values.config.channels.email.timeout }}
+      sms:
+        enabled: {{ .Values.config.channels.sms.enabled }}
+        provider: {{ .Values.config.channels.sms.provider }}
+        retryAttempts: {{ .Values.config.channels.sms.retryAttempts }}
+        timeout: {{ .Values.config.channels.sms.timeout }}
+      push:
+        enabled: {{ .Values.config.channels.push.enabled }}
+        provider: {{ .Values.config.channels.push.provider }}
+        retryAttempts: {{ .Values.config.channels.push.retryAttempts }}
+        timeout: {{ .Values.config.channels.push.timeout }}
+      websocket:
+        enabled: {{ .Values.config.channels.websocket.enabled }}
+        timeout: {{ .Values.config.channels.websocket.timeout }}
+    
+    queue:
+      provider: {{ .Values.config.queue.provider }}
+      maxRetries: {{ .Values.config.queue.maxRetries }}
+      retryDelay: {{ .Values.config.queue.retryDelay }}
+      deadLetterQueue: {{ .Values.config.queue.deadLetterQueue }}
+    
+    rateLimiting:
+      enabled: {{ .Values.config.rateLimiting.enabled }}
+      email:
+        perHour: {{ .Values.config.rateLimiting.email.perHour }}
+        perDay: {{ .Values.config.rateLimiting.email.perDay }}
+      sms:
+        perHour: {{ .Values.config.rateLimiting.sms.perHour }}
+        perDay: {{ .Values.config.rateLimiting.sms.perDay }}
+      push:
+        perHour: {{ .Values.config.rateLimiting.push.perHour }}
+        perDay: {{ .Values.config.rateLimiting.push.perDay }}
+    
+    templates:
+      defaultLanguage: {{ .Values.config.templates.defaultLanguage }}
+      supportedLanguages: {{ .Values.config.templates.supportedLanguages | toJson }}
+      cacheEnabled: {{ .Values.config.templates.cacheEnabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "user-notification-service.fullname" . }}-templates
+  labels:
+    {{- include "user-notification-service.labels" . | nindent 4 }}
+    component: notification
+    domain: user
+data:
+  welcome-email.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Welcome to Elice Platform</title>
+    </head>
+    <body>
+        <h1>Welcome {{.UserName}}!</h1>
+        <p>Thank you for joining our platform.</p>
+    </body>
+    </html>
+  password-reset.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Password Reset</title>
+    </head>
+    <body>
+        <h1>Password Reset Request</h1>
+        <p>Click <a href="{{.ResetLink}}">here</a> to reset your password.</p>
+    </body>
+    </html>

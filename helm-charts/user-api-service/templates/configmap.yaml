@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "user-api-service.fullname" . }}
+  labels:
+    {{- include "user-api-service.labels" . | nindent 4 }}
+    component: api-gateway
+    domain: user
+data:
+  config.yaml: |
+    gateway:
+      timeout: {{ .Values.config.gateway.timeout }}
+      maxConnections: {{ .Values.config.gateway.maxConnections }}
+      rateLimiting:
+        enabled: {{ .Values.config.gateway.rateLimiting.enabled }}
+        requestsPerMinute: {{ .Values.config.gateway.rateLimiting.requestsPerMinute }}
+    
+    services:
+      userAuth: {{ .Values.config.services.userAuth }}
+      userProfile: {{ .Values.config.services.userProfile }}
+      userNotification: {{ .Values.config.services.userNotification }}
+    
+    security:
+      cors:
+        enabled: {{ .Values.config.security.cors.enabled }}
+        allowedOrigins: {{ .Values.config.security.cors.allowedOrigins | toJson }}
+      jwt:
+        secret: {{ .Values.config.security.jwt.secret }}
+        expiration: {{ .Values.config.security.jwt.expiration }}

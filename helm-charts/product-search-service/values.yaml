@@ -1,0 +1,81 @@
+replicaCount: 2
+
+image:
+  repository: product-search-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Search service specific configurations
+config:
+  # Elasticsearch settings
+  elasticsearch:
+    cluster: "product-search"
+    indexName: "products"
+    maxResultWindow: 10000
+    timeout: "30s"
+  
+  # Search features
+  search:
+    fuzzyMatching: true
+    typoTolerance: 2
+    synonyms: true
+    autocomplete: true
+    faceted: true
+  
+  # Indexing
+  indexing:
+    batchSize: 1000
+    refreshInterval: "1s"
+    numberOfShards: 3
+    numberOfReplicas: 1
+
+env:
+  - name: SERVICE_NAME
+    value: "product-search-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: ELASTICSEARCH_URL
+    valueFrom:
+      configMapKeyRef:
+        name: elasticsearch-config
+        key: url
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000

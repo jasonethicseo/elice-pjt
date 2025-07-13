@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "product-inventory-service.fullname" . }}
+  labels:
+    {{- include "product-inventory-service.labels" . | nindent 4 }}
+    component: inventory-management
+    domain: product
+data:
+  config.yaml: |
+    stock:
+      lowStockThreshold: {{ .Values.config.stock.lowStockThreshold }}
+      reservationTimeout: {{ .Values.config.stock.reservationTimeout }}
+      autoReplenishment: {{ .Values.config.stock.autoReplenishment }}
+      safetyStock: {{ .Values.config.stock.safetyStock }}
+    
+    realtime:
+      enabled: {{ .Values.config.realtime.enabled }}
+      provider: {{ .Values.config.realtime.provider }}
+      broadcastChannel: {{ .Values.config.realtime.broadcastChannel }}
+    
+    warehouse:
+      multiWarehouse: {{ .Values.config.warehouse.multiWarehouse }}
+      defaultWarehouse: {{ .Values.config.warehouse.defaultWarehouse }}
+      distributionStrategy: {{ .Values.config.warehouse.distributionStrategy }}

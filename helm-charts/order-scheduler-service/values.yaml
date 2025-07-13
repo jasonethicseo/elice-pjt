@@ -1,0 +1,99 @@
+replicaCount: 1
+
+image:
+  repository: order-scheduler-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Scheduler service specific configurations
+config:
+  # Scheduled jobs
+  schedules:
+    orderCleanup:
+      enabled: true
+      cron: "0 2 * * *"  # Daily at 2 AM
+      description: "Clean up old completed orders"
+    inventorySync:
+      enabled: true
+      cron: "*/15 * * * *"  # Every 15 minutes
+      description: "Sync inventory with external systems"
+    paymentReconciliation:
+      enabled: true
+      cron: "0 1 * * *"  # Daily at 1 AM
+      description: "Reconcile payment transactions"
+    reportGeneration:
+      enabled: true
+      cron: "0 6 * * 1"  # Weekly on Monday at 6 AM
+      description: "Generate weekly order reports"
+    abandonedCartCleanup:
+      enabled: true
+      cron: "0 3 * * *"  # Daily at 3 AM
+      description: "Clean up abandoned shopping carts"
+  
+  # Job execution
+  execution:
+    timeout: "30m"
+    retryAttempts: 3
+    concurrentJobs: 1
+    timezone: "UTC"
+
+env:
+  - name: SERVICE_NAME
+    value: "order-scheduler-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: order-scheduler-db-secret
+        key: url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: order-scheduler-redis-config
+        key: url
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+# No autoscaling for scheduler (single instance)
+autoscaling:
+  enabled: false
+
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Leader election for scheduler
+leaderElection:
+  enabled: true
+  leaseDuration: "15s"
+  renewDeadline: "10s"
+  retryPeriod: "2s"

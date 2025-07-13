@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "order-worker-service.fullname" . }}
+  labels:
+    {{- include "order-worker-service.labels" . | nindent 4 }}
+    component: background-worker
+    domain: order
+data:
+  config.yaml: |
+    queue:
+      provider: {{ .Values.config.queue.provider }}
+      concurrency: {{ .Values.config.queue.concurrency }}
+      maxRetries: {{ .Values.config.queue.maxRetries }}
+      retryDelay: {{ .Values.config.queue.retryDelay }}
+      deadLetterQueue: {{ .Values.config.queue.deadLetterQueue }}
+    
+    jobs:
+      orderProcessing:
+        enabled: {{ .Values.config.jobs.orderProcessing.enabled }}
+        priority: {{ .Values.config.jobs.orderProcessing.priority }}
+        timeout: {{ .Values.config.jobs.orderProcessing.timeout }}
+      paymentProcessing:
+        enabled: {{ .Values.config.jobs.paymentProcessing.enabled }}
+        priority: {{ .Values.config.jobs.paymentProcessing.priority }}
+        timeout: {{ .Values.config.jobs.paymentProcessing.timeout }}
+      inventoryUpdate:
+        enabled: {{ .Values.config.jobs.inventoryUpdate.enabled }}
+        priority: {{ .Values.config.jobs.inventoryUpdate.priority }}
+        timeout: {{ .Values.config.jobs.inventoryUpdate.timeout }}
+      emailNotification:
+        enabled: {{ .Values.config.jobs.emailNotification.enabled }}
+        priority: {{ .Values.config.jobs.emailNotification.priority }}
+        timeout: {{ .Values.config.jobs.emailNotification.timeout }}
+    
+    monitoring:
+      metrics: {{ .Values.config.monitoring.metrics }}
+      healthcheck: {{ .Values.config.monitoring.healthcheck }}
+      deadlockDetection: {{ .Values.config.monitoring.deadlockDetection }}

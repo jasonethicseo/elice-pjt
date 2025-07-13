@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "product-recommendation-service.fullname" . }}
+  labels:
+    {{- include "product-recommendation-service.labels" . | nindent 4 }}
+    component: recommendation-engine
+    domain: product
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "product-recommendation-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "product-recommendation-service.selectorLabels" . | nindent 8 }}
+        component: recommendation-engine
+        domain: product
+    spec:
+      serviceAccountName: {{ include "product-recommendation-service.fullname" . }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.healthCheck.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.healthCheck.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: models
+              mountPath: /app/models
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "product-recommendation-service.fullname" . }}
+        - name: models
+          persistentVolumeClaim:
+            claimName: {{ include "product-recommendation-service.fullname" . }}-models

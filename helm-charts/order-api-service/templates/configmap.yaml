@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "order-api-service.fullname" . }}
+  labels:
+    {{- include "order-api-service.labels" . | nindent 4 }}
+    component: order-api
+    domain: order
+data:
+  config.yaml: |
+    order:
+      maxItemsPerOrder: {{ .Values.config.order.maxItemsPerOrder }}
+      orderTimeout: {{ .Values.config.order.orderTimeout }}
+      autoConfirmTimeout: {{ .Values.config.order.autoConfirmTimeout }}
+      cancellationDeadline: {{ .Values.config.order.cancellationDeadline }}
+    
+    payment:
+      providers: {{ .Values.config.payment.providers | toJson }}
+      timeout: {{ .Values.config.payment.timeout }}
+      retryAttempts: {{ .Values.config.payment.retryAttempts }}
+      webhookRetries: {{ .Values.config.payment.webhookRetries }}
+    
+    workflow:
+      states: {{ .Values.config.workflow.states | toJson }}
+      defaultState: {{ .Values.config.workflow.defaultState }}
+      asyncProcessing: {{ .Values.config.workflow.asyncProcessing }}
+    
+    inventory:
+      reservationTimeout: {{ .Values.config.inventory.reservationTimeout }}
+      autoRelease: {{ .Values.config.inventory.autoRelease }}

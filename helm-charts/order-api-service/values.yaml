@@ -1,0 +1,99 @@
+replicaCount: 3
+
+image:
+  repository: order-api-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Order API service specific configurations
+config:
+  # Order processing
+  order:
+    maxItemsPerOrder: 50
+    orderTimeout: "30m"
+    autoConfirmTimeout: "5m"
+    cancellationDeadline: "2h"
+  
+  # Payment integration
+  payment:
+    providers: ["stripe", "paypal", "bank_transfer"]
+    timeout: "30s"
+    retryAttempts: 3
+    webhookRetries: 5
+  
+  # Workflow
+  workflow:
+    states: ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]
+    defaultState: "pending"
+    asyncProcessing: true
+  
+  # Inventory integration
+  inventory:
+    reservationTimeout: "15m"
+    autoRelease: true
+
+env:
+  - name: SERVICE_NAME
+    value: "order-api-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: order-db-secret
+        key: url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: order-redis-config
+        key: url
+  - name: PAYMENT_STRIPE_KEY
+    valueFrom:
+      secretKeyRef:
+        name: payment-secrets
+        key: stripeKey
+
+resources:
+  limits:
+    cpu: 600m
+    memory: 768Mi
+  requests:
+    cpu: 250m
+    memory: 384Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "user-profile-service.fullname" . }}
+  labels:
+    {{- include "user-profile-service.labels" . | nindent 4 }}
+    component: profile-management
+    domain: user
+data:
+  config.yaml: |
+    storage:
+      provider: {{ .Values.config.storage.provider }}
+      bucket: {{ .Values.config.storage.bucket }}
+      region: {{ .Values.config.storage.region }}
+      maxFileSize: {{ .Values.config.storage.maxFileSize }}
+      allowedTypes: {{ .Values.config.storage.allowedTypes | toJson }}
+    
+    validation:
+      minUsernameLength: {{ .Values.config.validation.minUsernameLength }}
+      maxUsernameLength: {{ .Values.config.validation.maxUsernameLength }}
+      maxBioLength: {{ .Values.config.validation.maxBioLength }}
+      allowedUsernameChars: {{ .Values.config.validation.allowedUsernameChars }}
+    
+    cache:
+      enabled: {{ .Values.config.cache.enabled }}
+      ttl: {{ .Values.config.cache.ttl }}
+      provider: {{ .Values.config.cache.provider }}
+    
+    privacy:
+      defaultProfileVisibility: {{ .Values.config.privacy.defaultProfileVisibility }}
+      allowPrivateProfiles: {{ .Values.config.privacy.allowPrivateProfiles }}

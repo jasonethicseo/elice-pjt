@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "product-search-service.fullname" . }}
+  labels:
+    {{- include "product-search-service.labels" . | nindent 4 }}
+    component: search-engine
+    domain: product
+data:
+  config.yaml: |
+    elasticsearch:
+      cluster: {{ .Values.config.elasticsearch.cluster }}
+      indexName: {{ .Values.config.elasticsearch.indexName }}
+      maxResultWindow: {{ .Values.config.elasticsearch.maxResultWindow }}
+      timeout: {{ .Values.config.elasticsearch.timeout }}
+    
+    search:
+      fuzzyMatching: {{ .Values.config.search.fuzzyMatching }}
+      typoTolerance: {{ .Values.config.search.typoTolerance }}
+      synonyms: {{ .Values.config.search.synonyms }}
+      autocomplete: {{ .Values.config.search.autocomplete }}
+      faceted: {{ .Values.config.search.faceted }}
+    
+    indexing:
+      batchSize: {{ .Values.config.indexing.batchSize }}
+      refreshInterval: {{ .Values.config.indexing.refreshInterval }}
+      numberOfShards: {{ .Values.config.indexing.numberOfShards }}
+      numberOfReplicas: {{ .Values.config.indexing.numberOfReplicas }}

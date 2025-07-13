@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "user-profile-service.fullname" . }}
+  labels:
+    {{- include "user-profile-service.labels" . | nindent 4 }}
+    component: profile-management
+    domain: user
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "user-profile-service.selectorLabels" . | nindent 4 }}

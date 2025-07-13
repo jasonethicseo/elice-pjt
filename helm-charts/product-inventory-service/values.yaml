@@ -1,0 +1,83 @@
+replicaCount: 2
+
+image:
+  repository: product-inventory-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Inventory service specific configurations
+config:
+  # Stock management
+  stock:
+    lowStockThreshold: 10
+    reservationTimeout: "15m"
+    autoReplenishment: true
+    safetyStock: 5
+  
+  # Real-time updates
+  realtime:
+    enabled: true
+    provider: "redis"
+    broadcastChannel: "inventory_updates"
+  
+  # Warehouse integration
+  warehouse:
+    multiWarehouse: true
+    defaultWarehouse: "main"
+    distributionStrategy: "nearest"
+
+env:
+  - name: SERVICE_NAME
+    value: "product-inventory-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: product-inventory-db-secret
+        key: url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: product-inventory-redis-config
+        key: url
+
+resources:
+  limits:
+    cpu: 400m
+    memory: 512Mi
+  requests:
+    cpu: 150m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000

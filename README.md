@@ -85,11 +85,19 @@ elice-pjt/ (Public Repository)
 │   ├── 📂 openstack-network/       # 프라이빗 클라우드 네트워킹
 │   ├── 📂 openstack-compute/       # 가상머신 및 컴퓨팅
 │   └── 📂 openstack-storage/       # 블록/객체 스토리지
-├── 📂 helm-charts/                 # Kubernetes Deployments
+├── 📂 helm-charts/                 # Kubernetes Deployments (11 Services)
 │   ├── 📂 base-chart/              # 공통 Helm 차트
-│   ├── 📂 user-service/            # 사용자 서비스 차트
-│   ├── 📂 product-service/         # 상품 서비스 차트
-│   └── 📂 order-service/           # 주문 서비스 차트
+│   ├── 📂 user-api-service/        # User API Gateway
+│   ├── 📂 user-auth-service/       # 인증 및 JWT 관리
+│   ├── 📂 user-profile-service/    # 프로필 관리
+│   ├── 📂 user-notification-service/ # 멀티채널 알림
+│   ├── 📂 product-api-service/     # Product API Gateway
+│   ├── 📂 product-search-service/  # Elasticsearch 검색
+│   ├── 📂 product-recommendation-service/ # ML 추천 엔진
+│   ├── 📂 product-inventory-service/ # 실시간 재고 관리
+│   ├── 📂 order-api-service/       # 주문 처리 API
+│   ├── 📂 order-worker-service/    # 백그라운드 작업 처리
+│   └── 📂 order-scheduler-service/ # 크론 스케줄링
 ├── 📂 docs/                        # Documentation
 │   ├── MINIO_SETUP.md              # MinIO 설정 가이드
 │   └── PRIVATE_CLOUD_ARCHITECTURE.md # 프라이빗 클라우드 가이드
@@ -261,10 +269,10 @@ kubectl port-forward -n microservices-minio-dev svc/minio-console 9001:9001
 ### 👤 User Domain (4개 서비스)
 ```yaml
 Services:
-  - api: RESTful API 서버
-  - auth: 인증/인가 서비스
-  - profile: 사용자 프로필 관리
-  - notification: 알림 서비스
+  - user-api-service: User API Gateway (라우팅, 인증, 속도 제한)
+  - user-auth-service: JWT/OAuth 인증 (Google, GitHub 통합)
+  - user-profile-service: 프로필 관리 (MinIO 파일 업로드)
+  - user-notification-service: 멀티채널 알림 (Email, SMS, Push, WebSocket)
 
 Database: userdb (Aurora PostgreSQL)
 Storage:
@@ -273,35 +281,38 @@ Storage:
   - user-documents: 사용자 문서
 
 Resources:
-  - CPU: 2 cores, Memory: 4Gi
-  - HPA: 2-10 replicas
+  - CPU: 2-4 cores, Memory: 2-4Gi per service
+  - HPA: 2-15 replicas (서비스별 차등)
+  - 특별 기능: BCrypt 암호화, 속도 제한, 다국어 템플릿
 ```
 
 ### 🛍️ Product Domain (4개 서비스)
 ```yaml
 Services:
-  - api: 상품 관리 API
-  - search: 검색 엔진
-  - recommendation: 추천 시스템
-  - inventory: 재고 관리
+  - product-api-service: Product API Gateway (Elasticsearch 통합, 캐싱)
+  - product-search-service: 검색 엔진 (퍼지 매칭, 자동완성, 패싯)
+  - product-recommendation-service: ML 추천 (협업 필터링, 모델 저장)
+  - product-inventory-service: 실시간 재고 (예약, 자동 보충, 멀티 창고)
 
 Database: productdb (Aurora PostgreSQL)
 Storage:
   - product-images: 상품 이미지 (CDN 연동)
   - product-docs: 상품 문서
   - product-videos: 상품 동영상
+  - ml-models: 추천 모델 저장 (PVC)
 
 Resources:
-  - CPU: 4 cores, Memory: 8Gi
-  - HPA: 3-15 replicas
+  - CPU: 2-4 cores, Memory: 2-4Gi per service  
+  - HPA: 3-15 replicas (서비스별 차등)
+  - 특별 기능: Elasticsearch 통합, ML 모델 저장, 실시간 브로드캐스팅
 ```
 
 ### 📦 Order Domain (3개 서비스)
 ```yaml
 Services:
-  - api: 주문 처리 API
-  - worker: 백그라운드 작업
-  - scheduler: 스케줄링 서비스
+  - order-api-service: 주문 처리 API (Stripe/PayPal 결제, 워크플로우)
+  - order-worker-service: 백그라운드 작업 (Redis 큐, 우선순위, 데드레터)
+  - order-scheduler-service: 크론 스케줄링 (리더 선출, 주문 정리, 재고 동기화)
 
 Database: orderdb (Aurora PostgreSQL)
 Storage:
@@ -310,8 +321,9 @@ Storage:
   - order-attachments: 주문 첨부파일
 
 Resources:
-  - CPU: 3 cores, Memory: 6Gi
-  - HPA: 2-12 replicas
+  - CPU: 2-4 cores, Memory: 2-4Gi per service
+  - HPA: 2-20 replicas (API 서비스), 1 replica (스케줄러)
+  - 특별 기능: 결제 시스템 통합, Redis 큐, 리더 선출, 정시 작업
 ```
 
 ## 💰 비용 효율적인 객체 스토리지

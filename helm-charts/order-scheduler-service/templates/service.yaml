@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "order-scheduler-service.fullname" . }}
+  labels:
+    {{- include "order-scheduler-service.labels" . | nindent 4 }}
+    component: scheduler
+    domain: order
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "order-scheduler-service.selectorLabels" . | nindent 4 }}
