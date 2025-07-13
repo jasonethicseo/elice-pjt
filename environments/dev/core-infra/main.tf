@@ -160,3 +160,4 @@ module "minio" {
   
   tags = merge(local.common_tags, var.tags)
 }
+##
