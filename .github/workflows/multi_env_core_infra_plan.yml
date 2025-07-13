@@ -93,6 +93,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Checkout private modules
+        uses: actions/checkout@v4
+        with:
+          repository: jasonethicseo/elice-pjt-modules
+          token: ${{ secrets.PRIVATE_MODULES_TOKEN }}
+          path: modules
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
