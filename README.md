@@ -43,8 +43,8 @@
 ## 📁 프로젝트 구조
 
 ```
-elice-pjt/
-├── 📂 .github/workflows/           # CI/CD Pipelines
+elice-pjt/ (Public Repository)
+├── 📂 .github/workflows/           # CI/CD Pipelines with Private Module Access
 │   ├── msa_core_infra_plan.yml     # Core 인프라 계획
 │   ├── msa_core_infra_apply_destroy.yml # Core 인프라 배포/삭제
 │   ├── msa_domain_modules_plan.yml  # 도메인 모듈 계획
@@ -52,12 +52,13 @@ elice-pjt/
 │   ├── environment_promotion.yml    # 환경 승격 워크플로우
 │   ├── multi_env_core_infra_plan.yml # 다중 환경 계획
 │   └── helm_chart_publish.yml       # Helm 차트 배포
-├── 📂 environments/                 # Multi-Environment
+├── 📂 environments/                 # Multi-Environment Infrastructure
 │   ├── 📂 dev/                     # 개발 환경
 │   │   ├── 📂 core-infra/          # 공유 인프라
 │   │   ├── 📂 domain-user/         # 사용자 도메인 
 │   │   ├── 📂 domain-product/      # 상품 도메인
-│   │   └── 📂 domain-order/        # 주문 도메인
+│   │   ├── 📂 domain-order/        # 주문 도메인
+│   │   └── 📂 private-cloud/       # OpenStack 프라이빗 클라우드
 │   ├── 📂 staging/                 # 스테이징 환경
 │   │   ├── 📂 core-infra/
 │   │   ├── 📂 domain-user/
@@ -68,7 +69,9 @@ elice-pjt/
 │       ├── 📂 domain-user/
 │       ├── 📂 domain-product/
 │       └── 📂 domain-order/
-├── 📂 modules/                     #  Reusable Modules
+├── 📂 modules/                     # 🔒 Private Modules (Runtime Only)
+│   │                               # ⚠️  Available only in CI/CD environment
+│   │                               # ❌ Not included in public repository
 │   ├── 📂 vpc/                     # 네트워크 구성
 │   ├── 📂 eks/                     # EKS 클러스터
 │   ├── 📂 aurora/                  # PostgreSQL 데이터베이스
@@ -76,18 +79,35 @@ elice-pjt/
 │   ├── 📂 s3/                      # S3 버킷
 │   ├── 📂 cloudfront/              # CDN
 │   ├── 📂 openvpn/                 # VPN 서버
-│   └── 📂 minio/                   # S3 호환 객체 스토리지
+│   ├── 📂 ecr/                     # Container Registry
+│   └── 📂 minio/                   # S3 호환 객체 스토리지 (Public)
+├── 📂 modules/openstack-*/         # OpenStack Private Cloud Modules
+│   ├── 📂 openstack-network/       # 프라이빗 클라우드 네트워킹
+│   ├── 📂 openstack-compute/       # 가상머신 및 컴퓨팅
+│   └── 📂 openstack-storage/       # 블록/객체 스토리지
 ├── 📂 helm-charts/                 # Kubernetes Deployments
 │   ├── 📂 base-chart/              # 공통 Helm 차트
 │   ├── 📂 user-service/            # 사용자 서비스 차트
 │   ├── 📂 product-service/         # 상품 서비스 차트
 │   └── 📂 order-service/           # 주문 서비스 차트
 ├── 📂 docs/                        # Documentation
-│   └── MINIO_SETUP.md              # MinIO 설정 가이드
+│   ├── MINIO_SETUP.md              # MinIO 설정 가이드
+│   └── PRIVATE_CLOUD_ARCHITECTURE.md # 프라이빗 클라우드 가이드
 ├── 📂 examples/                    # Usage Examples
 │   ├── minio-usage.py              # MinIO Python 예제
 │   └── minio-microservice-config.yaml # Kubernetes 설정 예제
 └── README.md                       # This file
+
+📋 Private Module Repository (elice-pjt-modules)
+└── 📂 modules/                     # 🔒 Private Enterprise Modules
+    ├── 📂 vpc/                     # Advanced networking configuration
+    ├── 📂 eks/                     # Production-grade EKS setup
+    ├── 📂 aurora/                  # Enterprise PostgreSQL configuration
+    ├── 📂 microservice-base/       # Advanced microservice infrastructure
+    ├── 📂 s3/                      # Enterprise S3 configuration
+    ├── 📂 cloudfront/              # Production CDN setup
+    ├── 📂 openvpn/                 # Secure VPN configuration
+    └── 📂 ecr/                     # Container registry management
 ```
 
 ## 🚀 Quick Start
@@ -138,6 +158,80 @@ cd ../domain-order && terraform init && terraform apply
 ```bash
 # GitHub Actions를 통한 자동 배포
 git push origin main  # 자동으로 plan 및 apply 실행
+```
+
+## 🔒 보안 아키텍처 - Private Module System
+
+### **Two-Repository Architecture**
+
+이 프로젝트는 **보안과 투명성**을 모두 달성하기 위한 혁신적인 구조를 사용합니다:
+
+```yaml
+Repository Structure:
+  Public Repository (elice-pjt):
+    - 아키텍처 및 구조 공개
+    - 환경 설정 및 배포 스크립트
+    - OpenStack 프라이빗 클라우드 모듈
+    - MinIO 객체 스토리지 구현
+    
+  Private Repository (elice-pjt-modules):
+    - 엔터프라이즈급 핵심 모듈
+    - 프로덕션 보안 설정
+    - 고급 네트워킹 구성
+    - 상용 환경 최적화 코드
+```
+
+### **Runtime Module Access**
+
+```yaml
+# CI/CD 실행 시 (GitHub Actions)
+Security Flow:
+  1. Public repo checkout        # 메인 코드 가져오기
+  2. Private modules checkout    # PAT로 인증 후 모듈 가져오기
+     with: 
+       token: PRIVATE_MODULES_TOKEN
+  3. Module setup               # modules/ 폴더에 배치
+  4. Terraform execution        # ../../../modules/ 참조 동작
+  
+# 로컬 Clone 시
+Local Access:
+  ❌ modules/ 폴더 없음
+  ❌ terraform init 실패
+  ❌ 인프라 배포 불가
+  ✅ 아키텍처 학습 가능
+```
+
+### **보안 장점**
+
+- **👥 Public Transparency**: 아키텍처와 접근 방식 완전 공개
+- **🔐 IP Protection**: 핵심 비즈니스 로직과 보안 설정 보호  
+- **🚀 CI/CD Integration**: 인증된 환경에서만 자동 배포
+- **🛡️ Access Control**: PAT 기반 세밀한 권한 관리
+- **📊 Audit Trail**: 모든 인프라 변경 사항 추적 가능
+
+### **Setup Instructions**
+
+CI/CD에서 private modules에 접근하려면 다음 설정이 필요합니다:
+
+#### 1. Personal Access Token 생성
+```bash
+GitHub → Settings → Developer settings → Personal access tokens
+- repo (Full control of private repositories) ✅
+- workflow (Update GitHub Action workflows) ✅
+```
+
+#### 2. Repository Secrets 설정  
+```bash
+elice-pjt Repository → Settings → Secrets and variables → Actions
+- Name: PRIVATE_MODULES_TOKEN
+- Secret: [위에서 생성한 PAT]
+```
+
+#### 3. Workflow 동작 확인
+```bash
+git push origin main
+→ GitHub Actions에서 private modules 자동 체크아웃
+→ Terraform 정상 실행 ✅
 ```
 
 ### 4. 🔐 클러스터 접근 설정
