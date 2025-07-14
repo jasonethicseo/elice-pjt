@@ -32,6 +32,10 @@ locals {
   db_subnet_ids      = var.mock_mode ? var.mock_db_subnet_ids : try(data.terraform_remote_state.core_infra[0].outputs.db_subnet_ids, var.mock_db_subnet_ids)
   service_subnet_ids = var.mock_mode ? var.mock_service_subnet_ids : try(data.terraform_remote_state.core_infra[0].outputs.service_subnet_ids, var.mock_service_subnet_ids)
   eks_cluster_name   = var.mock_mode ? var.mock_eks_cluster_name : try(data.terraform_remote_state.core_infra[0].outputs.eks_cluster_name, var.mock_eks_cluster_name)
+  
+  # EKS cluster connection info
+  eks_cluster_endpoint              = var.mock_mode ? var.mock_eks_cluster_endpoint : try(data.terraform_remote_state.core_infra[0].outputs.cluster_endpoint, var.mock_eks_cluster_endpoint)
+  eks_cluster_certificate_authority = var.mock_mode ? var.mock_eks_cluster_certificate_authority : try(data.terraform_remote_state.core_infra[0].outputs.cluster_certificate_authority, var.mock_eks_cluster_certificate_authority)
 }
 
 locals {
@@ -63,6 +67,11 @@ module "order_microservice_base" {
     services        = "8"
     pvcs            = "3"
   }
+
+  # EKS cluster connection info
+  cluster_endpoint              = local.eks_cluster_endpoint
+  cluster_certificate_authority = local.eks_cluster_certificate_authority
+  cluster_name                 = local.eks_cluster_name
 
   tags = merge(local.common_tags, var.tags)
 }

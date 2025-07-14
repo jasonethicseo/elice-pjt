@@ -71,6 +71,7 @@ module "eks" {
   max_size       = var.max_size
   capacity_type  = "ON_DEMAND"
   instance_types = var.instance_types
+  ami_type       = var.ami_type
 
   tags = merge(local.common_tags, var.tags)
 }

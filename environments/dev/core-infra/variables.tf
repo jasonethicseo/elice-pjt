@@ -122,6 +122,11 @@ variable "instance_types" {
   default = ["t3.medium"]
 }
 
+variable "ami_type" {
+  type    = string
+  default = "AL2023_x86_64_STANDARD"  # Kubernetes 1.33+ 지원
+}
+
 # OpenVPN variables
 variable "openvpn_allowed_cidr_blocks" {
   type    = list(string)
