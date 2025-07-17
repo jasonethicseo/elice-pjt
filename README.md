@@ -1,3 +1,5 @@
+[![hits](https://myhits.vercel.app/api/hit/https%3A%2F%2Fgithub.com%2Fjasonethicseo%2Felice-pjt?color=blue&label=hits&size=small)](https://myhits.vercel.app)
+
 # Microservices Platform on AWS EKS
 
 > **완전한 MSA 환경**: Kubernetes 기반의 마이크로서비스 플랫폼  
