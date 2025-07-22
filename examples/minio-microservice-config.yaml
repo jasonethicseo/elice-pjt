@@ -1,0 +1,233 @@
+# MinIO를 사용하는 마이크로서비스 설정 예제
+
+# 1. User Service에서 MinIO 사용
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-config
+  namespace: microservices-user-dev
+data:
+  # MinIO 설정
+  MINIO_ENDPOINT: "http://minio-api.microservices-minio-dev.svc.cluster.local:9000"
+  MINIO_BUCKET_PROFILES: "user-profiles"
+  MINIO_BUCKET_AVATARS: "user-avatars"
+  MINIO_REGION: "us-east-1"
+  
+  # 애플리케이션 설정
+  APP_NAME: "user-service"
+  APP_ENV: "dev"
+
+---
+# MinIO 자격 증명 시크릿
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-credentials
+  namespace: microservices-user-dev
+type: Opaque
+stringData:
+  MINIO_ACCESS_KEY: "minioadmin"
+  MINIO_SECRET_KEY: "minioadmin123"
+
+---
+# User Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: microservices-user-dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+      - name: user-service
+        image: user-service:latest
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: user-service-config
+        - secretRef:
+            name: minio-credentials
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: user-db-credentials
+              key: url
+        
+        # MinIO 연결 확인을 위한 헬스체크
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+
+---
+# 2. Product Service에서 MinIO 사용
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-service-config
+  namespace: microservices-product-dev
+data:
+  # MinIO 설정
+  MINIO_ENDPOINT: "http://minio-api.microservices-minio-dev.svc.cluster.local:9000"
+  MINIO_BUCKET_IMAGES: "product-images"
+  MINIO_BUCKET_DOCS: "product-docs"
+  MINIO_REGION: "us-east-1"
+  
+  # CDN 설정 (정적 자산용)
+  CDN_ENDPOINT: "https://d1234567890.cloudfront.net"
+  
+  # 애플리케이션 설정
+  APP_NAME: "product-service"
+  APP_ENV: "dev"
+
+---
+# 3. Order Service에서 MinIO 사용
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-config
+  namespace: microservices-order-dev
+data:
+  # MinIO 설정
+  MINIO_ENDPOINT: "http://minio-api.microservices-minio-dev.svc.cluster.local:9000"
+  MINIO_BUCKET_RECEIPTS: "order-receipts"
+  MINIO_BUCKET_EXPORTS: "order-exports"
+  MINIO_REGION: "us-east-1"
+  
+  # 애플리케이션 설정
+  APP_NAME: "order-service"
+  APP_ENV: "dev"
+
+---
+# MinIO 관리용 Job - 버킷 정책 설정
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-setup-policies
+  namespace: microservices-minio-dev
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: mc
+        image: minio/mc:latest
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          # MinIO 클라이언트 설정
+          mc alias set minio http://minio-api:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+          
+          # 사용자 생성 (서비스별 분리)
+          mc admin user add minio user-service-key user-service-secret
+          mc admin user add minio product-service-key product-service-secret
+          mc admin user add minio order-service-key order-service-secret
+          
+          # 정책 생성
+          cat <<EOF > /tmp/user-service-policy.json
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:GetObject",
+                  "s3:PutObject",
+                  "s3:DeleteObject"
+                ],
+                "Resource": [
+                  "arn:aws:s3:::user-profiles/*",
+                  "arn:aws:s3:::user-avatars/*"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:ListBucket"
+                ],
+                "Resource": [
+                  "arn:aws:s3:::user-profiles",
+                  "arn:aws:s3:::user-avatars"
+                ]
+              }
+            ]
+          }
+          EOF
+          
+          # 정책 적용
+          mc admin policy add minio user-service-policy /tmp/user-service-policy.json
+          mc admin policy set minio user-service-policy user=user-service-key
+          
+          echo "MinIO 설정 완료"
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: root-user
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: root-password
+
+---
+# MinIO 모니터링용 ServiceMonitor (Prometheus 사용 시)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: minio-metrics
+  namespace: microservices-minio-dev
+spec:
+  selector:
+    matchLabels:
+      app: minio
+  endpoints:
+  - port: api
+    path: /minio/v2/metrics/cluster
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# MinIO 콘솔 접근을 위한 Ingress (선택사항)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: minio-console-ingress
+  namespace: microservices-minio-dev
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  rules:
+  - host: minio-console.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: minio-console
+            port:
+              number: 9001

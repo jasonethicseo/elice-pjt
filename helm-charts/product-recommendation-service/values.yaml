@@ -1,0 +1,86 @@
+replicaCount: 2
+
+image:
+  repository: product-recommendation-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Recommendation service specific configurations
+config:
+  # ML Model settings
+  model:
+    algorithm: "collaborative_filtering"
+    updateInterval: "24h"
+    minUserInteractions: 5
+    modelPath: "/app/models"
+  
+  # Recommendation features
+  recommendations:
+    maxResults: 20
+    diversityFactor: 0.3
+    popularityBoost: 0.1
+    personalizedWeight: 0.8
+  
+  # Cache settings
+  cache:
+    enabled: true
+    ttl: "1h"
+    provider: "redis"
+    keyPrefix: "rec"
+
+env:
+  - name: SERVICE_NAME
+    value: "product-recommendation-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: product-recommendation-db-secret
+        key: url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: product-recommendation-redis-config
+        key: url
+
+resources:
+  limits:
+    cpu: 800m
+    memory: 2Gi
+  requests:
+    cpu: 400m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 60
+    periodSeconds: 15
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000

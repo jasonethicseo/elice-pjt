@@ -1,0 +1,2 @@
+# Scheduler service doesn't use HPA as it requires single instance for leader election
+# HPA is disabled in values.yaml

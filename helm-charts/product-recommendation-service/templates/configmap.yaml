@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "product-recommendation-service.fullname" . }}
+  labels:
+    {{- include "product-recommendation-service.labels" . | nindent 4 }}
+    component: recommendation-engine
+    domain: product
+data:
+  config.yaml: |
+    model:
+      algorithm: {{ .Values.config.model.algorithm }}
+      updateInterval: {{ .Values.config.model.updateInterval }}
+      minUserInteractions: {{ .Values.config.model.minUserInteractions }}
+      modelPath: {{ .Values.config.model.modelPath }}
+    
+    recommendations:
+      maxResults: {{ .Values.config.recommendations.maxResults }}
+      diversityFactor: {{ .Values.config.recommendations.diversityFactor }}
+      popularityBoost: {{ .Values.config.recommendations.popularityBoost }}
+      personalizedWeight: {{ .Values.config.recommendations.personalizedWeight }}
+    
+    cache:
+      enabled: {{ .Values.config.cache.enabled }}
+      ttl: {{ .Values.config.cache.ttl }}
+      provider: {{ .Values.config.cache.provider }}
+      keyPrefix: {{ .Values.config.cache.keyPrefix }}

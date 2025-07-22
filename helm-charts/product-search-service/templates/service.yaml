@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "product-search-service.fullname" . }}
+  labels:
+    {{- include "product-search-service.labels" . | nindent 4 }}
+    component: search-engine
+    domain: product
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "product-search-service.selectorLabels" . | nindent 4 }}

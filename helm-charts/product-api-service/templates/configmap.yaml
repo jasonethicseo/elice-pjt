@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "product-api-service.fullname" . }}
+  labels:
+    {{- include "product-api-service.labels" . | nindent 4 }}
+    component: api-gateway
+    domain: product
+data:
+  config.yaml: |
+    gateway:
+      timeout: {{ .Values.config.gateway.timeout }}
+      maxConnections: {{ .Values.config.gateway.maxConnections }}
+      rateLimiting:
+        enabled: {{ .Values.config.gateway.rateLimiting.enabled }}
+        requestsPerMinute: {{ .Values.config.gateway.rateLimiting.requestsPerMinute }}
+        burstSize: {{ .Values.config.gateway.rateLimiting.burstSize }}
+    
+    services:
+      productSearch: {{ .Values.config.services.productSearch }}
+      productRecommendation: {{ .Values.config.services.productRecommendation }}
+      productInventory: {{ .Values.config.services.productInventory }}
+    
+    cache:
+      enabled: {{ .Values.config.cache.enabled }}
+      ttl: {{ .Values.config.cache.ttl }}
+      provider: {{ .Values.config.cache.provider }}
+      keyPrefix: {{ .Values.config.cache.keyPrefix }}
+    
+    search:
+      provider: {{ .Values.config.search.provider }}
+      timeout: {{ .Values.config.search.timeout }}
+      maxResults: {{ .Values.config.search.maxResults }}

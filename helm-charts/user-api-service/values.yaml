@@ -1,0 +1,91 @@
+replicaCount: 2
+
+image:
+  repository: user-api-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# User API Gateway specific configurations
+config:
+  # API Gateway settings
+  gateway:
+    timeout: 30s
+    maxConnections: 1000
+    rateLimiting:
+      enabled: true
+      requestsPerMinute: 100
+  
+  # Service discovery
+  services:
+    userAuth: "user-auth-service:8080"
+    userProfile: "user-profile-service:8080"
+    userNotification: "user-notification-service:8080"
+  
+  # Security settings
+  security:
+    cors:
+      enabled: true
+      allowedOrigins: ["*"]
+    jwt:
+      secret: "user-api-jwt-secret"
+      expiration: "24h"
+
+# Environment variables
+env:
+  - name: SERVICE_NAME
+    value: "user-api-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: user-db-secret
+        key: url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: user-redis-config
+        key: url
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Health checks
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000

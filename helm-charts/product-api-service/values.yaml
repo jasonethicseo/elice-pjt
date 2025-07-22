@@ -1,0 +1,106 @@
+replicaCount: 3
+
+image:
+  repository: product-api-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Product API Gateway specific configurations
+config:
+  # API Gateway settings
+  gateway:
+    timeout: 30s
+    maxConnections: 2000
+    rateLimiting:
+      enabled: true
+      requestsPerMinute: 200
+      burstSize: 50
+  
+  # Service discovery
+  services:
+    productSearch: "product-search-service:8080"
+    productRecommendation: "product-recommendation-service:8080"
+    productInventory: "product-inventory-service:8080"
+  
+  # Caching
+  cache:
+    enabled: true
+    ttl: "5m"
+    provider: "redis"
+    keyPrefix: "product-api"
+  
+  # Search integration
+  search:
+    provider: "elasticsearch"
+    timeout: "10s"
+    maxResults: 100
+
+# Environment variables
+env:
+  - name: SERVICE_NAME
+    value: "product-api-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: product-db-secret
+        key: url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: product-redis-config
+        key: url
+  - name: ELASTICSEARCH_URL
+    valueFrom:
+      configMapKeyRef:
+        name: elasticsearch-config
+        key: url
+
+resources:
+  limits:
+    cpu: 600m
+    memory: 768Mi
+  requests:
+    cpu: 250m
+    memory: 384Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 15
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Health checks
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2

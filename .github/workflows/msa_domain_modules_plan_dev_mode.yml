@@ -1,0 +1,338 @@
+name: 'MSA Domain Modules - Development Plan (Mock Mode)'
+
+on:
+  push:
+    branches:
+      - "feature/*"
+      - "develop"
+    paths:
+      - "environments/dev/domain-*/**"
+      - "modules/microservice-base/**"
+      - "modules/aurora/**"
+  pull_request:
+    branches:
+      - "develop"
+    paths:
+      - "environments/dev/domain-*/**"
+      - "modules/microservice-base/**"
+      - "modules/aurora/**"
+
+env:
+  AWS_REGION: ca-central-1
+  TF_BUCKET_NAME: jasonseo-dev-terraform-state
+  TF_DYNAMODB_TABLE: jasonseo-dev-terraform-lock
+
+jobs:
+  detect_changes:
+    name: 'Detect Changed Domain Modules'
+    runs-on: ubuntu-latest
+    outputs:
+      domains: ${{ steps.detect.outputs.domains }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed domains
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          else
+            CHANGED_FILES=$(git diff --name-only origin/develop HEAD)
+          fi
+          
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          
+          DOMAINS=()
+          for domain in user product order; do
+            if echo "$CHANGED_FILES" | grep -q "environments/dev/domain-${domain}/\|modules/microservice-base/\|modules/aurora/"; then
+              DOMAINS+=("$domain")
+            fi
+          done
+          
+          if [ ${#DOMAINS[@]} -eq 0 ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "domains=[]" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            DOMAINS_JSON=$(printf '"%s",' "${DOMAINS[@]}")
+            DOMAINS_JSON="[${DOMAINS_JSON%,}]"
+            echo "domains=$DOMAINS_JSON" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "Detected domains: $DOMAINS_JSON"
+
+  terraform_plan_domains_dev_mode:
+    name: 'Development Plan (Mock Mode)'
+    runs-on: ubuntu-latest
+    needs: detect_changes
+    if: needs.detect_changes.outputs.has_changes == 'true'
+    strategy:
+      matrix:
+        domain: ${{ fromJson(needs.detect_changes.outputs.domains) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Checkout private modules
+        uses: actions/checkout@v4
+        with:
+          repository: jasonethicseo/elice-pjt-modules
+          token: ${{ secrets.PRIVATE_MODULES_TOKEN }}
+          path: temp-modules
+          
+      - name: Setup modules directory
+        run: |
+          cp -r temp-modules/modules ./
+          rm -rf temp-modules
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: '1.8.0'
+
+      - name: Check Core Infrastructure State and Content
+        id: check_core
+        run: |
+          BUCKET="${{ env.TF_BUCKET_NAME }}"
+          KEY="terraform/dev/core-infra/terraform.tfstate"
+          REGION="${{ env.AWS_REGION }}"
+          
+          echo "Checking core infrastructure state..."
+          
+          # 1단계: tfstate 파일 존재 확인
+          if ! aws s3api head-object --bucket "$BUCKET" --key "$KEY" --region "$REGION" > /dev/null 2>&1; then
+            echo "tfstate file not found - using mock mode"
+            echo "mode=mock" >> $GITHUB_OUTPUT
+            echo "reason=no_tfstate" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # 2단계: tfstate 내용 확인 (outputs가 실제로 있는지)
+          echo "tfstate file exists, checking content..."
+          OUTPUTS_COUNT=$(aws s3 cp s3://$BUCKET/$KEY - 2>/dev/null | jq '.outputs | length' 2>/dev/null || echo "0")
+          
+          if [ "$OUTPUTS_COUNT" -eq 0 ] || [ "$OUTPUTS_COUNT" = "null" ]; then
+            echo "tfstate exists but no outputs found - using mock mode"
+            echo "This happens when infrastructure was destroyed but tfstate file remains"
+            echo "mode=mock" >> $GITHUB_OUTPUT
+            echo "reason=empty_outputs" >> $GITHUB_OUTPUT
+          else
+            echo "Core infrastructure fully available with $OUTPUTS_COUNT outputs - using integrated mode"
+            echo "mode=integrated" >> $GITHUB_OUTPUT
+            echo "reason=fully_available" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Mock Variables for Development - Domain ${{ matrix.domain }}
+        if: steps.check_core.outputs.mode == 'mock'
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          cat > terraform.tfvars.mock << EOF
+          # Mock values for development without core infrastructure
+          mock_mode = true
+          
+          # Mock networking values
+          mock_vpc_id = "vpc-mock12345678"
+          mock_db_subnet_ids = [
+            "subnet-mockdb001",
+            "subnet-mockdb002"
+          ]
+          mock_service_subnet_ids = [
+            "subnet-mocksvc001", 
+            "subnet-mocksvc002"
+          ]
+          mock_eks_cluster_name = "mock-eks-cluster"
+          
+          # Use mock tfvars
+          EOF
+          
+          # Copy mock tfvars to main tfvars for this run
+          cp terraform.tfvars.mock terraform.tfvars
+
+      - name: Terraform Init (Mock Mode) - Domain ${{ matrix.domain }}
+        if: steps.check_core.outputs.mode == 'mock'
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          # Use local backend for mock mode to avoid state conflicts
+          cat > backend_override.tf << EOF
+          terraform {
+            backend "local" {
+              path = "terraform-mock.tfstate"
+            }
+          }
+          EOF
+          
+          terraform init
+
+      - name: Terraform Init (Integrated Mode) - Domain ${{ matrix.domain }}
+        if: steps.check_core.outputs.mode == 'integrated'
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.TF_BUCKET_NAME }}" \
+            -backend-config="key=terraform/dev/domain-${{ matrix.domain }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.TF_DYNAMODB_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Validate - Domain ${{ matrix.domain }}
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: terraform validate
+
+      - name: Terraform Plan - Domain ${{ matrix.domain }}
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          terraform plan -out=tfplan-${{ matrix.domain }} -input=false
+
+      - name: Generate JSON Plan - Domain ${{ matrix.domain }}
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          terraform show -json tfplan-${{ matrix.domain }} > raw_plan.json
+          cat raw_plan.json
+          jq . raw_plan.json > plan.json
+
+      - name: Check for Dangerous Actions - Domain ${{ matrix.domain }}
+        id: check_dangerous
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          if jq '.resource_changes[]
+                   | select(.change.actions | 
+                     (index("delete") or 
+                      (index("delete") and index("create"))))' plan.json \
+             | grep -q .; then
+            echo "Dangerous actions detected in domain ${{ matrix.domain }}"
+            echo "has_dangerous=true" >> $GITHUB_OUTPUT
+            
+            echo "Affected resources in domain ${{ matrix.domain }}:"
+            jq -r '.resource_changes[]
+                     | select(.change.actions | 
+                       (index("delete") or 
+                        (index("delete") and index("create"))))
+                     | "  - \(.address): \(.change.actions | join(","))"' plan.json
+          else
+            echo "Only safe actions detected in domain ${{ matrix.domain }}"
+            echo "has_dangerous=false" >> $GITHUB_OUTPUT
+          fi
+
+      # - name: Comment Plan Results for Domain ${{ matrix.domain }}
+      #   if: github.event_name == 'pull_request'
+      #   uses: actions/github-script@v6
+      #   with:
+      #     script: |
+      #       const fs = require('fs');
+      #       
+      #       try {
+      #         const mode = '${{ steps.check_core.outputs.mode }}';
+      #         const reason = '${{ steps.check_core.outputs.reason }}';
+      #         const planJson = JSON.parse(fs.readFileSync('environments/dev/domain-${{ matrix.domain }}/plan.json', 'utf8'));
+      #         let added = 0;
+      #         let changed = 0;
+      #         let destroyed = 0;
+
+      #         if (planJson.resource_changes) {
+      #           planJson.resource_changes.forEach(change => {
+      #             if (change.change.actions.includes('create')) {
+      #               added++;
+      #             }
+      #             if (change.change.actions.includes('update')) {
+      #               changed++;
+      #             }
+      #             if (change.change.actions.includes('delete')) {
+      #               destroyed++;
+      #             }
+      #           });
+      #         }
+
+      #         const summaryText = `Plan: ${added} to add, ${changed} to change, ${destroyed} to destroy.`;
+      #         const hasDangerous = '${{ steps.check_dangerous.outputs.has_dangerous }}' === 'true';
+      #         
+      #         const modeIcon = mode === 'mock' ? '🧪' : '🔗';
+      #         const modeText = mode === 'mock' ? 'DEVELOPMENT MODE (Mock Data)' : 'INTEGRATED MODE (Real Core-Infra)';
+      #         
+      #         let reasonText = '';
+      #         if (mode === 'mock') {
+      #           if (reason === 'no_tfstate') {
+      #             reasonText = '📋 Core infrastructure not deployed yet';
+      #           } else if (reason === 'empty_outputs') {
+      #             reasonText = '⚠️ Core infrastructure was destroyed but tfstate remains';
+      #           } else {
+      #             reasonText = '🧪 Mock mode enabled for development';
+      #           }
+      #         } else {
+      #           reasonText = '✅ Core infrastructure fully operational';
+      #         }
+      #         
+      #         const comment = `
+      #         ## ${modeIcon} Domain ${{ matrix.domain }} Terraform Plan - ${modeText}
+      #         
+      #         **Status**: ${reasonText}
+      #         
+      #         ${hasDangerous ? '🚨 **DANGEROUS ACTIONS DETECTED!**' : '✅ **SAFE: Only create/update actions**'}
+      #         
+      #         ${mode === 'mock' ? '⚠️ **Note**: This plan uses mock data. Real deployment requires core infrastructure to be deployed first.' : ''}
+      #         
+      #         ${summaryText}
+      #         
+      #         <details>
+      #         <summary>📋 Full Plan Output for Domain ${{ matrix.domain }} (view as workflow artifact)</summary>
+      #         
+      #         The full Terraform plan output is too large to display here. Please refer to the workflow run artifacts for the complete plan.
+      #         
+      #         </details>
+      #         `;
+      #         
+      #         github.rest.issues.createComment({
+      #           issue_number: context.issue.number,
+      #           owner: context.repo.owner,
+      #           repo: context.repo.repo,
+      #           body: comment
+      #         });
+      #       } catch (error) {
+      #         console.error('Error posting comment:', error);
+      #       }
+
+      - name: Clean up Mock Files - Domain ${{ matrix.domain }}
+        if: always() && steps.check_core.outputs.mode == 'mock'
+        working-directory: environments/dev/domain-${{ matrix.domain }}
+        run: |
+          rm -f terraform.tfvars terraform.tfvars.mock backend_override.tf
+          rm -f terraform-mock.tfstate terraform-mock.tfstate.backup
+          rm -f plan.json tfplan-${{ matrix.domain }}
+
+      - name: Fail if Dangerous Actions Detected
+        if: steps.check_dangerous.outputs.has_dangerous == 'true'
+        run: |
+          echo "ERROR: Dangerous actions detected in domain ${{ matrix.domain }}!"
+          echo ""
+          if [ "${{ steps.check_core.outputs.mode }}" = "mock" ]; then
+            echo "This is development mode with mock data."
+            echo "Review carefully before deploying to integrated environment."
+          else
+            echo "BLOCKED: Only create and update actions are allowed for safety."
+            echo "This could cause downtime for this domain's services."
+          fi
+          exit 1
+
+      - name: Upload Terraform Plan Artifact for Domain ${{ matrix.domain }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ matrix.domain }}
+          path: environments/dev/domain-${{ matrix.domain }}/tfplan-${{ matrix.domain }}
+
+      - name: Upload Terraform Plan JSON Artifact for Domain ${{ matrix.domain }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-json-${{ matrix.domain }}
+          path: environments/dev/domain-${{ matrix.domain }}/plan.json

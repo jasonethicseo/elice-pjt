@@ -1,0 +1,150 @@
+replicaCount: 2
+
+image:
+  repository: user-notification-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Notification service specific configurations
+config:
+  # Notification channels
+  channels:
+    email:
+      enabled: true
+      provider: "smtp"
+      retryAttempts: 3
+      timeout: "30s"
+    sms:
+      enabled: true
+      provider: "twilio"
+      retryAttempts: 3
+      timeout: "15s"
+    push:
+      enabled: true
+      provider: "fcm"
+      retryAttempts: 2
+      timeout: "10s"
+    websocket:
+      enabled: true
+      timeout: "5s"
+  
+  # Queue settings
+  queue:
+    provider: "redis"
+    maxRetries: 5
+    retryDelay: "5s"
+    deadLetterQueue: true
+  
+  # Rate limiting per user
+  rateLimiting:
+    enabled: true
+    email:
+      perHour: 50
+      perDay: 200
+    sms:
+      perHour: 10
+      perDay: 30
+    push:
+      perHour: 100
+      perDay: 500
+  
+  # Template settings
+  templates:
+    defaultLanguage: "en"
+    supportedLanguages: ["en", "ko", "ja"]
+    cacheEnabled: true
+
+# Environment variables
+env:
+  - name: SERVICE_NAME
+    value: "user-notification-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: user-notification-db-secret
+        key: url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: user-notification-redis-config
+        key: url
+  - name: SMTP_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: smtp-config
+        key: host
+  - name: SMTP_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: smtp-secret
+        key: username
+  - name: SMTP_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: smtp-secret
+        key: password
+  - name: TWILIO_ACCOUNT_SID
+    valueFrom:
+      secretKeyRef:
+        name: twilio-secret
+        key: accountSid
+  - name: TWILIO_AUTH_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: twilio-secret
+        key: authToken
+  - name: FCM_SERVER_KEY
+    valueFrom:
+      secretKeyRef:
+        name: fcm-secret
+        key: serverKey
+
+resources:
+  limits:
+    cpu: 400m
+    memory: 512Mi
+  requests:
+    cpu: 150m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 12
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Health checks
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

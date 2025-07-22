@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "order-scheduler-service.fullname" . }}
+  labels:
+    {{- include "order-scheduler-service.labels" . | nindent 4 }}
+    component: scheduler
+    domain: order
+data:
+  config.yaml: |
+    schedules:
+      orderCleanup:
+        enabled: {{ .Values.config.schedules.orderCleanup.enabled }}
+        cron: "{{ .Values.config.schedules.orderCleanup.cron }}"
+        description: "{{ .Values.config.schedules.orderCleanup.description }}"
+      inventorySync:
+        enabled: {{ .Values.config.schedules.inventorySync.enabled }}
+        cron: "{{ .Values.config.schedules.inventorySync.cron }}"
+        description: "{{ .Values.config.schedules.inventorySync.description }}"
+      paymentReconciliation:
+        enabled: {{ .Values.config.schedules.paymentReconciliation.enabled }}
+        cron: "{{ .Values.config.schedules.paymentReconciliation.cron }}"
+        description: "{{ .Values.config.schedules.paymentReconciliation.description }}"
+      reportGeneration:
+        enabled: {{ .Values.config.schedules.reportGeneration.enabled }}
+        cron: "{{ .Values.config.schedules.reportGeneration.cron }}"
+        description: "{{ .Values.config.schedules.reportGeneration.description }}"
+      abandonedCartCleanup:
+        enabled: {{ .Values.config.schedules.abandonedCartCleanup.enabled }}
+        cron: "{{ .Values.config.schedules.abandonedCartCleanup.cron }}"
+        description: "{{ .Values.config.schedules.abandonedCartCleanup.description }}"
+    
+    execution:
+      timeout: {{ .Values.config.execution.timeout }}
+      retryAttempts: {{ .Values.config.execution.retryAttempts }}
+      concurrentJobs: {{ .Values.config.execution.concurrentJobs }}
+      timezone: {{ .Values.config.execution.timezone }}

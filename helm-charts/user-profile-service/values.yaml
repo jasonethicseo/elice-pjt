@@ -1,0 +1,109 @@
+replicaCount: 2
+
+image:
+  repository: user-profile-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Profile service specific configurations
+config:
+  # File storage settings
+  storage:
+    provider: "minio"  # minio, s3, gcs
+    bucket: "user-profiles"
+    region: "us-east-1"
+    maxFileSize: "10MB"
+    allowedTypes: ["image/jpeg", "image/png", "image/gif"]
+  
+  # Profile validation
+  validation:
+    minUsernameLength: 3
+    maxUsernameLength: 30
+    maxBioLength: 500
+    allowedUsernameChars: "alphanumeric_underscore"
+  
+  # Cache settings
+  cache:
+    enabled: true
+    ttl: "1h"
+    provider: "redis"
+  
+  # Privacy settings
+  privacy:
+    defaultProfileVisibility: "public"
+    allowPrivateProfiles: true
+
+# Environment variables
+env:
+  - name: SERVICE_NAME
+    value: "user-profile-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: user-profile-db-secret
+        key: url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: user-profile-redis-config
+        key: url
+  - name: MINIO_ENDPOINT
+    valueFrom:
+      configMapKeyRef:
+        name: minio-config
+        key: endpoint
+  - name: MINIO_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: minio-secret
+        key: accessKey
+  - name: MINIO_SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: minio-secret
+        key: secretKey
+
+resources:
+  limits:
+    cpu: 300m
+    memory: 384Mi
+  requests:
+    cpu: 100m
+    memory: 192Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Health checks
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000

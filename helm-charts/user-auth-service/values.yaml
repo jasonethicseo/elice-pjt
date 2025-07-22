@@ -1,0 +1,112 @@
+replicaCount: 3
+
+image:
+  repository: user-auth-service
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Authentication service specific configurations
+config:
+  # JWT settings
+  jwt:
+    secret: "user-auth-jwt-secret-key"
+    accessTokenExpiration: "15m"
+    refreshTokenExpiration: "7d"
+    issuer: "elice-user-auth"
+    algorithm: "HS256"
+  
+  # OAuth providers
+  oauth:
+    google:
+      enabled: true
+      clientId: "google-oauth-client-id"
+      clientSecret: "google-oauth-client-secret"
+    github:
+      enabled: true
+      clientId: "github-oauth-client-id"
+      clientSecret: "github-oauth-client-secret"
+  
+  # Security settings
+  security:
+    bcryptRounds: 12
+    maxLoginAttempts: 5
+    lockoutDuration: "15m"
+    sessionTimeout: "30m"
+  
+  # Rate limiting
+  rateLimiting:
+    enabled: true
+    loginAttempts: 10
+    windowMs: 900000  # 15 minutes
+
+# Environment variables
+env:
+  - name: SERVICE_NAME
+    value: "user-auth-service"
+  - name: SERVICE_PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: user-auth-db-secret
+        key: url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: user-auth-redis-config
+        key: url
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: jwt-secret
+        key: secret
+
+resources:
+  limits:
+    cpu: 300m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 15
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Health checks
+healthCheck:
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 2000
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
